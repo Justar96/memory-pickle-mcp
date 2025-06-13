@@ -68,7 +68,7 @@ export class TaskService {
       task.progress = 100;
     } else {
       task.completed_date = undefined;
-      task.progress = task.progress || 0;
+      task.progress = 0; // Reset progress to 0 when marking as incomplete
     }
   }
 

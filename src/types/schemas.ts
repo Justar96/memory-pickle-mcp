@@ -3,8 +3,7 @@ import { z } from 'zod';
 // Schemas for primitive/reused types
 const prioritySchema = z.enum(['critical', 'high', 'medium', 'low']);
 
-// Schema for Task
-const taskSchema = z.object({
+export const taskSchema = z.object({
   id: z.string(),
   project_id: z.string(),
   parent_id: z.string().optional(),
@@ -22,8 +21,7 @@ const taskSchema = z.object({
   blockers: z.array(z.string()).optional().default([]),
 });
 
-// Schema for Milestone
-const milestoneSchema = z.object({
+export const milestoneSchema = z.object({
   id: z.string(),
   title: z.string(),
   due_date: z.string().optional(),

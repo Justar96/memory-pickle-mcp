@@ -909,7 +909,7 @@ async function main() {
   server.setRequestHandler(CallToolRequestSchema, (req) => callToolHandler(req, memoryServer));
 
   await server.connect(transport);
-  console.error('Memory Pickle MCP server v2.0 running - Project Management Mode');
+  console.error('Memory Pickle MCP server v1.0 running - Project Management Mode');
 }
 
 main().catch((error) => {

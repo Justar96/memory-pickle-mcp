@@ -4,36 +4,7 @@
 export const MEMORY_TOOLS = [
   {
     name: "remember_this",
-    description: `<tool_instruction>
-  <priority>HIGH</priority>
-  <use_when>
-    <condition>User makes important decisions about architecture, design, or approach</condition>
-    <condition>User provides key information that should be preserved</condition>
-    <condition>User explains complex requirements or constraints</condition>
-    <condition>User shares important context about the project or domain</condition>
-  </use_when>
-  <workflow>
-    <step>Extract the key information from user's message</step>
-    <step>Create descriptive title summarizing the information</step>
-    <step>Store detailed content for future reference</step>
-    <step>Link to current task or project if relevant</step>
-  </workflow>
-  <agent_behavior>
-    <auto_remember>Store important decisions and context automatically</auto_remember>
-    <categorization>
-      <project_planning>Architecture, design decisions, requirements</project_planning>
-      <technical>Implementation details, constraints, solutions</technical>
-      <business>Domain knowledge, user needs, business rules</business>
-    </categorization>
-    <linking>Automatically link memories to current project and related tasks</linking>
-  </agent_behavior>
-  <examples>
-    <trigger>"We decided to use PostgreSQL for better performance" → remember architecture decision</trigger>
-    <trigger>"The API rate limit is 1000 requests per hour" → remember technical constraint</trigger>
-    <trigger>"Users need to be able to export data as CSV" → remember requirement</trigger>
-  </examples>
-  <integration>Memories can be retrieved later with recall_context for project continuity</integration>
-</tool_instruction>`,
+    description: "HIGH PRIORITY: Store important decisions, architecture choices, requirements, and key context for future reference. Auto-categorize as project_planning (architecture, design, requirements), technical (implementation, constraints, solutions), or business (domain knowledge, user needs, rules). Link to current project/tasks. Examples: 'We decided to use PostgreSQL', 'API rate limit is 1000/hour', 'Users need CSV export'.",
     inputSchema: {
       type: "object",
       properties: {
@@ -50,14 +21,7 @@ export const MEMORY_TOOLS = [
   },
   {
     name: "recall_context",
-    description: `<tool_instruction>
-  <priority>CRITICAL</priority>
-  <use_when>
-    <condition>Session start - shows project status if no query provided</condition>
-    <condition>Need context from previous sessions</condition>
-  </use_when>
-  <auto_behavior>If no query is provided, automatically shows project status</auto_behavior>
-</tool_instruction>`,
+    description: "CRITICAL: Retrieve stored memories and context from previous sessions. If no query provided, automatically shows project status. Use at session start or when needing historical context, decisions, or requirements.",
     inputSchema: {
       type: "object",
       properties: {

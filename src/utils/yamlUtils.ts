@@ -17,15 +17,48 @@ export function serializeToYaml(data: ProjectDatabase): string {
 }
 
 /**
- * Generic YAML serialization for any data type
+ * Generic YAML serialization for any data type with circular reference handling
  */
 export function serializeDataToYaml(data: any): string {
   try {
-    return yaml.dump(data, YAML_OPTIONS);
+    // Remove circular references before serialization
+    const cleanData = removeCircularReferences(data);
+    return yaml.dump(cleanData, YAML_OPTIONS);
   } catch (error) {
     console.error('Error serializing data to YAML:', error);
     throw error;
   }
+}
+
+/**
+ * Removes circular references from an object by replacing them with a reference marker
+ */
+function removeCircularReferences(obj: any, seen = new WeakSet()): any {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+
+  if (seen.has(obj)) {
+    return '[Circular Reference]';
+  }
+
+  seen.add(obj);
+
+  if (Array.isArray(obj)) {
+    const result = obj.map(item => removeCircularReferences(item, seen));
+    seen.delete(obj);
+    return result;
+  }
+
+  const result: any = {};
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      result[key] = removeCircularReferences(obj[key], seen);
+    }
+  }
+
+  seen.delete(obj);
+  return result;
 }
 
 /**
