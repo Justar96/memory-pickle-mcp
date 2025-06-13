@@ -9,6 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm test` - Run Jest tests with ESM support
 - `npm run inspector` - Test server with MCP inspector tool
 - `node build/index.js` - Run the MCP server directly
+- `MEMORY_PICKLE_NO_EMOJIS=true node build/index.js` - Run in clean text mode
 
 ## Project Architecture
 
@@ -47,6 +48,7 @@ The system uses a split-file approach with these files in `.memory-pickle/`:
 - Project completion percentages are calculated automatically when tasks change
 - The server maintains an in-memory task index that must be rebuilt after database commits
 - Tool method names must match exactly with the tool name for dynamic dispatch to work
+- Emoji output is configurable via `MEMORY_PICKLE_NO_EMOJIS` environment variable
 
 ### MCP Integration
 

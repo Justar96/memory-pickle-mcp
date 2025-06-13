@@ -163,6 +163,21 @@ npm run build
 }
 ```
 
+**Clean text mode (no emojis):**
+```json
+{
+  "mcpServers": {
+    "memory-pickle": {
+      "command": "npx",
+      "args": ["-y", "@cabbages/memory-pickle-mcp"],
+      "env": {
+        "MEMORY_PICKLE_NO_EMOJIS": "true"
+      }
+    }
+  }
+}
+```
+
 **Global installation:**
 ```json
 {
@@ -188,6 +203,12 @@ npm run build
 - Automatic task assignment to current project
 - Project-level progress calculation
 - Status tracking (planning/in_progress/completed)
+
+**User Experience:**
+- 🎭 **Configurable Output**: Choose between emoji-rich or clean text mode
+- 🏢 **Corporate Friendly**: Professional text output for enterprise environments
+- 🖥️ **Universal Compatibility**: Works in any terminal, SSH, or restricted environment
+- 🎨 **Visual or Minimal**: `✅ Task completed!` vs `[OK] Task completed!`
 
 **Session Continuity:**
 - Auto-loads project status at session start

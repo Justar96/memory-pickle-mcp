@@ -206,3 +206,51 @@ Blocker: Database connection problems
 ```
 
 The key is to work naturally - Memory Pickle adapts to how you already talk about your projects.
+
+## Configuration Options
+
+### Emoji vs Clean Text
+
+Memory Pickle supports two output modes:
+
+**Default (Emojis):**
+```
+✅ Task completed successfully!
+📊 Project Status: My App (75% complete)
+⬜ Build authentication system [high]
+✅ Set up database [medium]
+🚨 Blocked: SSL certificate needed
+```
+
+**Clean Text Mode:**
+```
+[OK] Task completed successfully!
+## Project Status: My App (75% complete)
+[ ] Build authentication system [high]
+[DONE] Set up database [medium]
+## Blocked: SSL certificate needed
+```
+
+### Enabling Clean Text Mode
+
+Add to your MCP configuration:
+```json
+{
+  "mcpServers": {
+    "memory-pickle": {
+      "command": "npx",
+      "args": ["-y", "@cabbages/memory-pickle-mcp"],
+      "env": {
+        "MEMORY_PICKLE_NO_EMOJIS": "true"
+      }
+    }
+  }
+}
+```
+
+**When to Use Clean Text:**
+- Corporate/enterprise environments
+- Terminal-only access (SSH, etc.)
+- Personal preference for minimal output
+- Accessibility considerations
+- Logging/automation systems

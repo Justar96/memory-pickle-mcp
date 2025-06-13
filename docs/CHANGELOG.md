@@ -5,6 +5,31 @@ All notable changes to Memory Pickle MCP will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-06-13
+
+### Added
+- **Configurable emoji support** via `MEMORY_PICKLE_NO_EMOJIS` environment variable
+- Clean text mode for corporate and terminal environments
+- `emojiUtils.ts` utility for consistent formatting across components
+- Side-by-side configuration examples in documentation
+- Multi-platform integration guides for Claude Desktop, Cursor, Windsurf, VS Code
+
+### Fixed
+- **Critical bug**: Tool names now use snake_case to match method names
+- Resolves "Unknown tool" errors that made v1.0.0 unusable in MCP clients
+- All 13 tools now work correctly with proper naming convention
+
+### Changed
+- Updated all configuration files to use npm package instead of hardcoded paths
+- Enhanced documentation with emoji configuration examples
+- Improved integration guides for universal compatibility
+
+### Documentation
+- Updated README.md with emoji configuration examples
+- Enhanced INTEGRATION-GUIDE.md with multi-platform setup instructions  
+- Added CLAUDE.md for development guidance
+- Updated USAGE.md with configuration options
+
 ## [1.0.0] - 2025-06-13
 
 ### Added
