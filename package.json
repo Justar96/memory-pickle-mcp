@@ -1,0 +1,68 @@
+{
+  "name": "@cabbages/memory-pickle-mcp",
+  "version": "1.0.0",
+  "description": "MEM-Pickle MCP - agent planing tools :)",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "project-management",
+    "task-tracking",
+    "ai-memory",
+    "agent-memory",
+    "checklist",
+    "todo",
+    "persistent-state",
+    "session-continuity"
+  ],
+  "author": "Cabbages Code",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "memory-pickle": "./build/index.js"
+  },
+  "files": [
+    "build",
+    "mcp.config.json",
+    "mcp.config.example.json",
+    "agent-instructions.xml",
+    "agent-system-prompt.xml",
+    "memory-config.yaml",
+    "setup-mcp.js",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "prepare": "npm run build",
+    "watch": "tsc --watch",
+    "setup": "node setup-mcp.js",
+    "inspector": "npx @modelcontextprotocol/inspector build/index.js",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cabbages/memory-pickle-mcp.git"
+  },
+  "mcp": {
+    "configFile": "mcp.config.json",
+    "instructions": "agent-instructions.xml",
+    "systemPrompt": "agent-system-prompt.xml"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "0.6.0",
+    "@types/js-yaml": "^4.0.9",
+    "axios": "^1.9.0",
+    "js-yaml": "^4.1.0",
+    "zod": "^3.25.64"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.19.0",
+    "cross-env": "^7.0.3",
+    "jest": "^30.0.0",
+    "ts-jest": "^29.4.0",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

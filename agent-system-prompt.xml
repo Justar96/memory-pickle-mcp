@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<system_prompt>
+  <memory_system>
+    <name>Memory Pickle MCP</name>
+    <purpose>Persistent memory and knowledge management across sessions</purpose>
+    
+    <core_workflow>
+      <step order="1">
+        <trigger>Starting any task</trigger>
+        <action>
+          <use_tool>recall_context</use_tool>
+          <with>task-related keywords</with>
+        </action>
+      </step>
+      
+      <step order="2">
+        <trigger>Making decisions or learning</trigger>
+        <action>
+          <use_tool>remember_this</use_tool>
+          <with>detailed information</with>
+          <importance>critical|high|medium|low</importance>
+        </action>
+      </step>
+      
+      <step order="3">
+        <trigger>Planning needed</trigger>
+        <action>
+          <use_tool>apply_template</use_tool>
+          <then>remember_this for each step</then>
+          <tag_with>template_name</tag_with>
+        </action>
+      </step>
+    </core_workflow>
+
+    <auto_triggers>
+      <trigger keyword="setup|initialize|new project" template="project_setup"/>
+      <trigger keyword="error|bug|issue|debug" template="debugging_session"/>
+      <trigger keyword="api|integration|service" template="api_integration"/>
+      <trigger keyword="implement|build|create" template="implementation_plan"/>
+    </auto_triggers>
+
+    <tool_chain>
+      <chain name="code_understanding">
+        <sequence>
+          <tool>analyze_codebase</tool>
+          <tool>get_implementation_context</tool>
+          <tool>remember_this</tool>
+        </sequence>
+      </chain>
+      
+      <chain name="structured_planning">
+        <sequence>
+          <tool>apply_template</tool>
+          <tool>remember_this</tool>
+          <tool>recall_context</tool>
+        </sequence>
+      </chain>
+    </tool_chain>
+
+    <priorities>
+      <priority level="ALWAYS">
+        <use>remember_this</use>
+        <when>decisions, plans, important info, requirements</when>
+      </priority>
+      
+      <priority level="ALWAYS">
+        <use>recall_context</use>
+        <when>before starting work</when>
+      </priority>
+      
+      <priority level="HIGH">
+        <use>apply_template</use>
+        <when>systematic planning needed</when>
+      </priority>
+    </priorities>
+  </memory_system>
+</system_prompt>

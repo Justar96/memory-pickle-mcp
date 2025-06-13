@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<memory_pickle_instructions>
+  <meta>
+    <version>2.0</version>
+    <purpose>Guide AI agents to use memory-pickle as a persistent project management tool</purpose>
+    <priority>CRITICAL</priority>
+  </meta>
+
+  <session_start_rules>
+    <rule id="AUTO_LOAD" priority="CRITICAL">
+      <description>ALWAYS automatically load project status at session start</description>
+      <action>
+        <tool>get_project_status</tool>
+        <reason>Ensure continuity between sessions by showing current tasks immediately</reason>
+      </action>
+      <behavior>Do NOT wait for user to ask - show status proactively</behavior>
+    </rule>
+  </session_start_rules>
+
+  <workflow_rules>
+    <rule id="1" priority="CRITICAL">
+      <condition>Session start or when asked about project/tasks</condition>
+      <action>
+        <tool>get_project_status</tool>
+        <reason>Show current project state and pending tasks</reason>
+      </action>
+    </rule>
+
+    <rule id="2" priority="CRITICAL">
+      <condition>User mentions a task or todo item</condition>
+      <action>
+        <tool>create_task</tool>
+        <parameters>
+          <title>Task description from user</title>
+          <priority>Assess based on urgency/importance</priority>
+        </parameters>
+        <reason>Capture all action items as trackable tasks</reason>
+      </action>
+    </rule>
+
+    <rule id="3" priority="HIGH">
+      <condition>Task is completed or user says something is done</condition>
+      <action>
+        <tool>toggle_task</tool>
+        <parameters>
+          <task_id>ID of completed task</task_id>
+        </parameters>
+        <reason>Keep project progress up to date</reason>
+      </action>
+    </rule>
+
+    <rule id="4" priority="HIGH">
+      <condition>End of conversation or user needs to switch to new chat</condition>
+      <action>
+        <tool>generate_handoff_summary</tool>
+        <parameters>
+          <format>detailed</format>
+        </parameters>
+        <reason>Create seamless handoff for next session</reason>
+      </action>
+    </rule>
+
+    <rule id="5" priority="HIGH">
+      <condition>User reports blockers or issues with a task</condition>
+      <action>
+        <tool>update_task_progress</tool>
+        <parameters>
+          <task_id>Affected task ID</task_id>
+          <blockers>List of blockers</blockers>
+        </parameters>
+        <reason>Track impediments for visibility</reason>
+      </action>
+    </rule>
+
+    <rule id="6" priority="MEDIUM">
+      <condition>Planning a new project or major feature</condition>
+      <action>
+        <sequence>
+          <first>
+            <tool>create_project</tool>
+            <parameters>
+              <name>Project name</name>
+              <description>Project goals</description>
+            </parameters>
+          </first>
+          <then>
+            <tool>apply_template</tool>
+            <parameters>
+              <template_name>project_checklist</template_name>
+            </parameters>
+          </then>
+        </sequence>
+      </action>
+    </rule>
+  </workflow_rules>
+
+  <tool_relationships>
+    <relationship>
+      <from>get_project_status</from>
+      <to>create_task</to>
+      <when>Need to add new tasks based on status</when>
+    </relationship>
+
+    <relationship>
+      <from>create_task</from>
+      <to>toggle_task</to>
+      <when>Task is completed</when>
+    </relationship>
+
+    <relationship>
+      <from>toggle_task</from>
+      <to>get_project_status</to>
+      <when>Want to see updated progress</when>
+    </relationship>
+
+    <relationship>
+      <from>get_project_status</from>
+      <to>generate_handoff_summary</to>
+      <when>End of session</when>
+    </relationship>
+  </tool_relationships>
+
+  <task_management_principles>
+    <principle>
+      <name>Everything is a Task</name>
+      <description>Convert all action items, todos, and commitments into trackable tasks</description>
+    </principle>
+
+    <principle>
+      <name>Progress Visibility</name>
+      <description>Always show completion percentage and what's left to do</description>
+    </principle>
+
+    <principle>
+      <name>Seamless Continuity</name>
+      <description>New sessions should pick up exactly where the last one ended</description>
+    </principle>
+
+    <principle>
+      <name>Automatic Tracking</name>
+      <description>Track progress without user having to explicitly ask</description>
+    </principle>
+  </task_management_principles>
+
+  <best_practices>
+    <practice id="1">
+      <title>Auto-Load on Start</title>
+      <description>ALWAYS call get_project_status at session start without being asked</description>
+      <example>
+        "I'll check your project status...
+        [calls get_project_status]
+        Here's where we left off: ..."
+      </example>
+    </practice>
+
+    <practice id="2">
+      <title>Create Tasks Proactively</title>
+      <description>When user mentions any action item, create a task immediately</description>
+      <example>
+        User: "We need to add authentication"
+        Agent: [calls create_task with title="Add authentication"]
+      </example>
+    </practice>
+
+    <practice id="3">
+      <title>Track Completion Automatically</title>
+      <description>Mark tasks complete when user indicates they're done</description>
+      <example>
+        User: "I finished the login page"
+        Agent: [calls toggle_task to mark it complete]
+      </example>
+    </practice>
+
+    <practice id="4">
+      <title>End with Summary</title>
+      <description>Always provide handoff summary at conversation end</description>
+      <example>
+        "Before you go, here's a summary for your next session..."
+        [calls generate_handoff_summary]
+      </example>
+    </practice>
+
+    <practice id="5">
+      <title>Use Subtasks for Complex Items</title>
+      <description>Break down large tasks into subtasks</description>
+      <example>
+        Parent: "Implement user authentication"
+        Subtasks: "Setup JWT", "Create login UI", "Add password reset"
+      </example>
+    </practice>
+  </best_practices>
+
+  <priority_guidelines>
+    <priority level="critical">
+      <use_for>Blocking issues, security problems, production bugs</use_for>
+      <color>🔴</color>
+    </priority>
+
+    <priority level="high">
+      <use_for>Core features, important deadlines, user-facing issues</use_for>
+      <color>🟡</color>
+    </priority>
+
+    <priority level="medium">
+      <use_for>Standard features, improvements, refactoring</use_for>
+      <color>🟢</color>
+    </priority>
+
+    <priority level="low">
+      <use_for>Nice-to-have features, minor improvements, tech debt</use_for>
+      <color>🔵</color>
+    </priority>
+  </priority_guidelines>
+
+  <handoff_protocol>
+    <step>1. Generate comprehensive summary at session end</step>
+    <step>2. Include completed items, in-progress work, and blockers</step>
+    <step>3. Highlight next priorities</step>
+    <step>4. Provide copy-paste ready summary</step>
+    <step>5. In new session, parse handoff and continue seamlessly</step>
+  </handoff_protocol>
+
+  <error_handling>
+    <error type="no_project">
+      <action>Prompt to create a project first</action>
+      <message>Let's create a project to organize your tasks</message>
+    </error>
+
+    <error type="task_not_found">
+      <action>Show available tasks with IDs</action>
+      <fallback>Use get_tasks to list all tasks</fallback>
+    </error>
+
+    <error type="ambiguous_task_reference">
+      <action>Ask for clarification with task list</action>
+      <message>Which task did you mean? Here are the options...</message>
+    </error>
+  </error_handling>
+
+  <special_behaviors>
+    <behavior name="smart_context_loading">
+      <description>If user provides a handoff summary, parse it and update task statuses accordingly</description>
+    </behavior>
+
+    <behavior name="auto_progress_tracking">
+      <description>Infer progress from user's descriptions and update tasks automatically</description>
+    </behavior>
+
+    <behavior name="intelligent_task_creation">
+      <description>Extract multiple tasks from a single user message if needed</description>
+    </behavior>
+  </special_behaviors>
+</memory_pickle_instructions>

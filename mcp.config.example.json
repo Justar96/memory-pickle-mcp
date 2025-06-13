@@ -1,0 +1,42 @@
+{
+  "mcpServers": {
+    "memory-pickle": {
+      "command": "node",
+      "args": ["C:\\Users\\nalon\\AppData\\Roaming\\Cabbages-Code\\MCP\\memory-pickle\\build\\index.js"],
+      "disabled": false,
+      "alwaysAllow": [
+        "remember_this",
+        "recall_context",
+        "list_categories"
+      ],
+      "env": {
+        "NODE_ENV": "production",
+        "MEMORY_FILE_PATH": "C:\\Users\\nalon\\AppData\\Roaming\\Cabbages-Code\\MCP\\memory-pickle\\memories.yaml",
+        "CONFIG_FILE_PATH": "C:\\Users\\nalon\\AppData\\Roaming\\Cabbages-Code\\MCP\\memory-pickle\\memory-config.yaml"
+      },
+      "timeout": 30,
+      "description": "Memory Pickle - Persistent memory system for AI agents with code analysis"
+    }
+  },
+  
+  "_comments": {
+    "usage": "Copy the memory-pickle server configuration to your main MCP settings file",
+    "alwaysAllow": "These tools don't require user confirmation for faster workflow",
+    "timeout": "Maximum seconds to wait for server responses",
+    "env": "Environment variables passed to the server process",
+    "alternative_configs": {
+      "development": {
+        "env": {
+          "NODE_ENV": "development",
+          "DEBUG": "true"
+        }
+      },
+      "with_api_integration": {
+        "env": {
+          "API_ENDPOINT": "http://localhost:3000/api/ast",
+          "API_ENABLED": "true"
+        }
+      }
+    }
+  }
+}
