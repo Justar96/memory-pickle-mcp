@@ -1,5 +1,6 @@
 import type { Task, Project } from '../types/index.js';
 import { generateId } from '../utils/idGenerator.js';
+import { taskCheckbox, sectionHeader } from '../utils/emojiUtils.js';
 
 /**
  * Service responsible for task management operations
@@ -202,7 +203,7 @@ export class TaskService {
    */
   formatTaskTree(task: Task, allTasks: Task[], indent: number = 0): string {
     const indentStr = '  '.repeat(indent);
-    const checkbox = task.completed ? '✅' : '⬜';
+    const checkbox = taskCheckbox(task.completed);
     const progress = task.progress ? ` (${task.progress}%)` : '';
     
     let result = `${indentStr}${checkbox} ${task.title}${progress} [${task.priority}]\n`;
@@ -225,11 +226,11 @@ export class TaskService {
    * Formats task list for display
    */
   formatTaskList(tasks: Task[]): string {
-    let result = `# 📋 Task List\n\n`;
+    let result = `# ${sectionHeader('Task List', '📋')}\n\n`;
     result += `**Found:** ${tasks.length} tasks\n\n`;
 
     tasks.forEach(task => {
-      result += `${task.completed ? '✅' : '⬜'} **${task.title}** (${task.id})\n`;
+      result += `${taskCheckbox(task.completed)} **${task.title}** (${task.id})\n`;
       result += `   Priority: ${task.priority} | Progress: ${task.progress || 0}%\n`;
       if (task.description) result += `   ${task.description}\n`;
       if (task.blockers && task.blockers.length > 0) {

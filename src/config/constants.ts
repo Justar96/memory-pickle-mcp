@@ -21,6 +21,9 @@ export const SERVER_CONFIG = {
   version: "2.0.0",
 } as const;
 
+// UI configuration
+export const USE_EMOJIS = process.env.MEMORY_PICKLE_NO_EMOJIS !== 'true';
+
 // YAML serialization options
 export const YAML_OPTIONS = {
   indent: 2,

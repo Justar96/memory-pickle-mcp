@@ -120,22 +120,56 @@ For easier deployment across different environments:
 ### Environment Variables
 - `NODE_ENV`: Set to "production" for optimized performance
 - `MEMORY_PICKLE_DATA_DIR`: Custom data directory (default: `.memory-pickle/`)
+- `MEMORY_PICKLE_NO_EMOJIS`: Set to "true" to disable emojis for clean text output
 
 ### Advanced Configuration
 ```json
 {
   "mcpServers": {
     "memory-pickle": {
-      "command": "node",
-      "args": ["/path/to/build/index.js"],
+      "command": "npx",
+      "args": ["-y", "@cabbages/memory-pickle-mcp"],
       "env": {
         "NODE_ENV": "production",
-        "MEMORY_PICKLE_DATA_DIR": "/custom/path/.memory-pickle"
+        "MEMORY_PICKLE_DATA_DIR": "/custom/path/.memory-pickle",
+        "MEMORY_PICKLE_NO_EMOJIS": "true"
       },
       "cwd": "/path/to/working/directory"
     }
   }
 }
+```
+
+### Clean Text Mode (No Emojis)
+For corporate environments or personal preference, disable emojis:
+```json
+{
+  "mcpServers": {
+    "memory-pickle": {
+      "command": "npx",
+      "args": ["-y", "@cabbages/memory-pickle-mcp"],
+      "env": {
+        "MEMORY_PICKLE_NO_EMOJIS": "true"
+      }
+    }
+  }
+}
+```
+
+**With Emojis (Default):**
+```
+✅ Project created successfully!
+📊 Project Status: My Project
+⬜ Task 1 [high]
+✅ Task 2 [medium]
+```
+
+**Without Emojis:**
+```
+[OK] Project created successfully!
+## Project Status: My Project
+[ ] Task 1 [high]
+[DONE] Task 2 [medium]
 ```
 
 ## 🛠️ Available Tools (13 Total)

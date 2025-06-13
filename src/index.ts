@@ -39,6 +39,7 @@ import { DEFAULT_TEMPLATES } from './config/templates.js';
 import { ensureDirectoryExists, fileExists } from './utils/fileUtils.js';
 import { serializeToYaml, deserializeFromYaml } from './utils/yamlUtils.js';
 import { generateId } from './utils/idGenerator.js';
+import { EMOJIS, sectionHeader, taskCheckbox } from './utils/emojiUtils.js';
 
 // Import services
 import { StorageService, ProjectService, TaskService, MemoryService } from './services/index.js';
@@ -136,7 +137,7 @@ class MemoryPickleServer {
     return {
       content: [{
         type: "text",
-        text: `✅ Project created successfully!
+        text: `${EMOJIS.SUCCESS} Project created successfully!
 
 **Project:** ${result.name}
 **ID:** ${result.id}
@@ -186,7 +187,7 @@ Use \`create_task\` to start adding tasks to your project.`
     return {
       content: [{
         type: "text",
-        text: `✅ Task created successfully!
+        text: `${EMOJIS.SUCCESS} Task created successfully!
 
 **Task:** ${result.title}
 **ID:** ${result.id}
@@ -246,10 +247,10 @@ Use \`toggle_task\` with ID "${result.id}" to mark it as complete.`
     return {
       content: [{
         type: "text",
-        text: `${result.task.completed ? '✅' : '⬜'} Task ${result.task.completed ? 'completed' : 'marked as incomplete'}!
+        text: `${taskCheckbox(result.task.completed)} Task ${result.task.completed ? 'completed' : 'marked as incomplete'}!
 
 **Task:** ${result.task.title}
-**Status:** ${result.task.completed ? 'Completed ✅' : 'Incomplete ⬜'}
+**Status:** ${result.task.completed ? `Completed ${EMOJIS.COMPLETED}` : `Incomplete ${EMOJIS.PENDING}`}
 ${result.task.completed_date ? `**Completed on:** ${new Date(result.task.completed_date).toLocaleDateString()}` : ''}
 
 Project completion: ${result.projectCompletion}%`
@@ -272,12 +273,12 @@ Project completion: ${result.projectCompletion}%`
 
     const summary = this.projectService.generateProjectSummary(project, this.database.tasks);
     
-    let result = `# 📊 Project Status: ${project.name}\n\n`;
+    let result = `# ${sectionHeader('Project Status', '📊')}: ${project.name}\n\n`;
     result += `**Status:** ${project.status} | **Completion:** ${summary.completion_percentage}%\n`;
     result += `**Total Tasks:** ${summary.total_tasks} | **Completed:** ${summary.completed_tasks} | **In Progress:** ${summary.in_progress_tasks}\n\n`;
 
     // Show task tree
-    result += `## 📋 Task List\n\n`;
+    result += `${sectionHeader('Task List', '📋')}\n\n`;
     const rootTasks = this.taskService.filterTasks(this.database.tasks, {
       project_id: targetProjectId,
       parent_id: undefined
@@ -289,7 +290,7 @@ Project completion: ${result.projectCompletion}%`
 
     // Show critical/blocked items
     if (summary.blocked_tasks > 0) {
-      result += `\n## 🚨 Blocked Items\n\n`;
+      result += `\n${sectionHeader('Blocked Items', '🚨')}\n\n`;
       this.database.tasks
         .filter(t => t.project_id === targetProjectId && t.blockers && t.blockers.length > 0)
         .forEach(task => {
@@ -298,15 +299,15 @@ Project completion: ${result.projectCompletion}%`
     }
 
     if (summary.critical_items.length > 0) {
-      result += `\n## ⚡ Critical Priority Items\n\n`;
+      result += `\n${sectionHeader('Critical Priority Items', '⚡')}\n\n`;
       summary.critical_items.forEach(task => {
-        result += `- ${task.completed ? '✅' : '⬜'} ${task.title}\n`;
+        result += `- ${taskCheckbox(task.completed)} ${task.title}\n`;
       });
     }
 
     // Recent completions
     if (summary.recent_completions.length > 0) {
-      result += `\n## ✅ Recently Completed\n\n`;
+      result += `\n${sectionHeader('Recently Completed', '✅')}\n\n`;
       summary.recent_completions.slice(0, 5).forEach(task => {
         result += `- ${task.title} (${new Date(task.completed_date!).toLocaleDateString()})\n`;
       });
@@ -565,7 +566,7 @@ ${notes ? `**New Note:** ${notes}` : ''}`
     return {
       content: [{
         type: "text",
-        text: `✅ Memory stored successfully!
+        text: `${EMOJIS.SUCCESS} Memory stored successfully!
         
 **ID:** ${result.id}
 **Category:** ${result.category}
@@ -643,7 +644,7 @@ ${memory.content}`;
     return {
       content: [{
         type: "text",
-        text: `🧠 Found ${results.length} relevant memories:\n\n${formattedResults}`
+        text: `${EMOJIS.MEMORY} Found ${results.length} relevant memories:\n\n${formattedResults}`
       }]
     };
   }
@@ -690,7 +691,7 @@ ${memory.content}`;
       return {
         content: [{
           type: "text",
-          text: `✅ Export saved to: ${output_file}\n\n**Stats:**\n- Projects: ${this.database.projects.length}\n- Tasks: ${this.database.tasks.length}\n- Memories: ${this.database.memories.length}\n- File size: ${Math.round(markdown.length / 1024)}KB`
+          text: `${EMOJIS.SUCCESS} Export saved to: ${output_file}\n\n**Stats:**\n- Projects: ${this.database.projects.length}\n- Tasks: ${this.database.tasks.length}\n- Memories: ${this.database.memories.length}\n- File size: ${Math.round(markdown.length / 1024)}KB`
         }]
       };
     } catch (error) {
@@ -817,7 +818,7 @@ ${memory.content}`;
     return {
       content: [{
         type: "text",
-        text: `✅ Current project set to: **${result.name}**\n\nAll new tasks will be added to this project by default.`
+        text: `${EMOJIS.SUCCESS} Current project set to: **${result.name}**\n\nAll new tasks will be added to this project by default.`
       }]
     };
   }
