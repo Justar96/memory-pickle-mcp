@@ -115,7 +115,7 @@ class MemoryPickleServer {
   }
 
   // Project Management Methods
-  async createProject(args: any): Promise<any> {
+  async create_project(args: any): Promise<any> {
     const result = await this.storageService.runExclusive(async (db) => {
       const project = this.projectService.createProject(args);
       
@@ -147,7 +147,7 @@ Use \`create_task\` to start adding tasks to your project.`
     };
   }
 
-  async createTask(args: any): Promise<any> {
+  async create_task(args: any): Promise<any> {
     const result = await this.storageService.runExclusive(async (db) => {
       // Use current project if not specified
       const targetProjectId = args.project_id || db.meta.current_project_id;
@@ -200,7 +200,7 @@ Use \`toggle_task\` with ID "${result.id}" to mark it as complete.`
     };
   }
 
-  async toggleTask(args: any): Promise<any> {
+  async toggle_task(args: any): Promise<any> {
     const { task_id } = args;
     
     if (!task_id) {
@@ -257,7 +257,7 @@ Project completion: ${result.projectCompletion}%`
     };
   }
 
-  async getProjectStatus(args: any = {}): Promise<any> {
+  async get_project_status(args: any = {}): Promise<any> {
     const { project_id } = args;
     const targetProjectId = project_id || this.database.meta.current_project_id;
 
@@ -320,7 +320,7 @@ Project completion: ${result.projectCompletion}%`
     };
   }
 
-  async generateHandoffSummary(args: any = {}): Promise<any> {
+  async generate_handoff_summary(args: any = {}): Promise<any> {
     const { format = 'detailed' } = args;
     
     const result = await this.storageService.runExclusive(async (db) => {
@@ -368,7 +368,7 @@ Project completion: ${result.projectCompletion}%`
     };
   }
 
-  async updateTaskProgress(args: any): Promise<any> {
+  async update_task_progress(args: any): Promise<any> {
     const { task_id, progress, notes, blockers } = args;
     
     if (!task_id) {
@@ -419,7 +419,7 @@ ${notes ? `**New Note:** ${notes}` : ''}`
     };
   }
 
-  async getTasks(args: any = {}): Promise<any> {
+  async get_tasks(args: any = {}): Promise<any> {
     const { status, project_id, parent_id, priority } = args;
     const targetProjectId = project_id || this.database.meta.current_project_id;
 
@@ -528,7 +528,7 @@ ${notes ? `**New Note:** ${notes}` : ''}`
   }
 
   // Legacy methods for backward compatibility
-  async rememberThis(args: any): Promise<any> {
+  async remember_this(args: any): Promise<any> {
     const { title, content, category = 'general', importance = 'medium', tags = [], task_id, project_id } = args;
     
     if (!title || !content) {
@@ -575,12 +575,12 @@ ${notes ? `**New Note:** ${notes}` : ''}`
     };
   }
 
-  async recallContext(args: any): Promise<any> {
+  async recall_context(args: any): Promise<any> {
     const { query, category, tags, limit = 10 } = args;
     
     // If no parameters provided at all, show project status
     if (!query && !category && (!tags || tags.length === 0)) {
-      return this.getProjectStatus();
+      return this.get_project_status();
     }
 
     // Ensure memories array exists
@@ -648,7 +648,7 @@ ${memory.content}`;
     };
   }
 
-  async exportToMarkdown(args: any): Promise<any> {
+  async export_to_markdown(args: any): Promise<any> {
     const { output_file = 'project-export.md', include_tasks = true, include_memories = true } = args;
     
     let markdown = `# Project Export\n\n`;
@@ -731,7 +731,7 @@ ${memory.content}`;
     return result;
   }
 
-  async applyTemplate(args: any): Promise<any> {
+  async apply_template(args: any): Promise<any> {
     const { template_name, context = {} } = args;
     
     if (!template_name) {
@@ -763,7 +763,7 @@ ${memory.content}`;
     };
   }
 
-  async listCategories(): Promise<any> {
+  async list_categories(): Promise<any> {
     let result = `📊 **Project Management Overview**\n\n`;
     
     // Show project stats
@@ -788,7 +788,7 @@ ${memory.content}`;
     };
   }
 
-  async setCurrentProject(args: any): Promise<any> {
+  async set_current_project(args: any): Promise<any> {
     const { project_id } = args;
     
     if (!project_id) {

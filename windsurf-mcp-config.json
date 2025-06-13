@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "memory-pickle": {
+      "command": "npx",
+      "args": ["-y", "@cabbages/memory-pickle-mcp"],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  }
+}
