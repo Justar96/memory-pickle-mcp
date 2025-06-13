@@ -18,7 +18,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "memory-pickle": "./build/index.js"
+    "memory-pickle": "build/index.js"
   },
   "files": [
     "build",
@@ -40,7 +40,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/cabbages/memory-pickle-mcp.git"
+    "url": "git+https://github.com/cabbages/memory-pickle-mcp.git"
   },
   "mcp": {
     "configFile": "mcp.config.json",
