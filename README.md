@@ -1,8 +1,8 @@
-# Memory Pickle MCP
+# Memory Pickle MCP 🥒
 
 A Model Context Protocol server that gives AI agents persistent memory for project management. Your agent remembers what you're working on between chat sessions.
 
-## Quick Start
+## 🚀 Quick Start
 
 Add this to your MCP configuration:
 
@@ -17,42 +17,47 @@ Add this to your MCP configuration:
 }
 ```
 
-That's it. Your agent will now remember your projects and tasks across sessions.
+That's it! Your agent will now remember your projects and tasks across sessions.
 
-## What It Does
+## 🎯 What It Does
 
-- **Remembers your work** - Agent loads your current project when you start chatting
-- **Tracks tasks automatically** - Creates tasks when you mention things to do
-- **Shows progress** - See what's done and what's left
-- **Handles handoffs** - Get summaries to continue work in new chats
+- **🧠 Remembers your work** - Agent loads your current project when you start chatting
+- **📋 Tracks tasks automatically** - Creates tasks when you mention things to do
+- **📊 Shows progress** - See what's done and what's left with completion percentages
+- **🤝 Handles handoffs** - Get summaries to continue work in new chats
+- **🏗️ Hierarchical tasks** - Support for subtasks and nested organization
+- **⚡ Priority levels** - Critical, High, Medium, Low task prioritization
+- **🚨 Blocker tracking** - Document and track what's preventing progress
 
-## How It Works
+## 💡 How It Works
 
 The agent automatically:
-1. Loads your project status at the start of each session
-2. Creates tasks when you mention work items
-3. Marks tasks complete when you say they're done
-4. Tracks progress and shows completion percentages
+1. **Loads project status** at the start of each session via `get_project_status`
+2. **Creates tasks** when you mention work items using `create_task`
+3. **Marks tasks complete** when you say they're done with `toggle_task`
+4. **Tracks progress** and shows completion percentages
+5. **Generates handoff summaries** for seamless session transitions
 
 No special commands needed - just talk naturally about your work.
 
-## Example Usage
+## 📖 Example Usage
 
 **Starting a project:**
 ```
 You: "I'm building a todo app with React"
 Agent: I'll track this project for you.
-[Creates project and initial tasks]
+✅ Created project: Todo App
+📋 Added initial tasks based on your description
 ```
 
 **Continuing work:**
 ```
 You: "Hi, let's continue"
-Agent: [Automatically loads project status]
+Agent: [Automatically loads via get_project_status]
 📊 Todo App Project - 40% complete
 ✅ Set up React project
-⬜ Create task component
-⬜ Add database
+⬜ Create task component  
+⬜ Add database integration
 ```
 
 **Making progress:**
@@ -60,56 +65,56 @@ Agent: [Automatically loads project status]
 You: "I finished the task component"
 Agent: Great! Marking that as complete.
 ✅ Task component - Done!
-Project is now 67% complete.
+📈 Project is now 67% complete.
 ```
 
-## Available Tools
+## 🛠️ Available Tools
 
-The agent has access to these tools (you don't need to call them directly):
+The agent has access to **13 tools** organized in 4 categories:
 
-- `get_project_status` - Shows current tasks and progress
-- `create_task` - Adds new tasks to track
-- `toggle_task` - Marks tasks complete/incomplete
-- `update_task_progress` - Updates progress and notes
-- `generate_handoff_summary` - Creates session summaries
-- `create_project` - Starts new projects
-- `remember_this` - Stores important information
-- `recall_context` - Retrieves stored memories
+### 📁 Project Management
+- `create_project` - Initialize new project containers
+- `get_project_status` - Show hierarchical task tree ⭐ *Auto-loads at session start*
+- `set_current_project` - Switch between multiple projects  
+- `generate_handoff_summary` - Create session transitions
 
-## Data Storage
+### ✅ Task Management
+- `create_task` - Add tasks with automatic priority detection
+- `toggle_task` - Complete/uncomplete with progress updates
+- `update_task_progress` - Track progress, notes, and blockers
+- `get_tasks` - Filter and display tasks by criteria
 
-Your data is stored locally in a `.memory-pickle/` folder:
-- `projects.yaml` - Your projects
-- `tasks.yaml` - All tasks and progress
-- `memories.yaml` - Important notes and decisions
+### 🧠 Memory Management  
+- `remember_this` - Store important decisions and context
+- `recall_context` - Search and retrieve memories
+
+### 🔧 Utilities
+- `export_to_markdown` - Generate documentation from project data
+- `apply_template` - Guide users through structured planning
+- `list_categories` - Show overview and available templates
+
+## 💾 Data Storage
+
+Your data is stored locally in a `.memory-pickle/` folder with split-file architecture:
+- `projects.yaml` - Your projects and metadata
+- `tasks.yaml` - All tasks with hierarchy and progress
+- `memories.yaml` - Important notes and decisions  
 - `meta.yaml` - Session tracking and settings
 
-## Features
+## 📚 Documentation
 
-**Task Management:**
-- Hierarchical tasks (subtasks)
-- Priority levels (critical, high, medium, low)
-- Progress tracking (0-100%)
-- Blocker documentation
+- **[📥 Installation Guide](docs/INSTALLATION.md)** - Setup instructions and troubleshooting
+- **[🛠️ Tools Reference](docs/TOOLS.md)** - Complete tool documentation with examples
+- **[📖 Usage Guide](docs/USAGE.md)** - Workflows, patterns, and best practices
+- **[⚙️ Development Guide](docs/DEVELOPMENT.md)** - Contributing and architecture details
+- **[📝 Changelog](docs/CHANGELOG.md)** - Version history and release notes
 
-**Project Organization:**
-- Multiple concurrent projects
-- Automatic task assignment
-- Completion percentage calculation
-- Status tracking
+## 🔧 Requirements
 
-**Session Continuity:**
-- Auto-loads project status
-- Generates handoff summaries
-- Preserves context between chats
-- Session counter tracking
+- **Node.js 16+** - Runtime environment
+- **MCP-compatible client** - Claude Desktop, Cursor, Windsurf, etc.
 
-## Requirements
-
-- Node.js 16+
-- An MCP-compatible AI client (Claude Desktop, Cursor, etc.)
-
-## Installation Methods
+## 📦 Installation Methods
 
 **NPX (recommended):**
 ```bash
@@ -129,14 +134,14 @@ npm install
 npm run build
 ```
 
-## Configuration Examples
+## ⚙️ Configuration Examples
 
 **Basic setup:**
 ```json
 {
   "mcpServers": {
     "memory-pickle": {
-      "command": "npx",
+      "command": "npx", 
       "args": ["-y", "@cabbages/memory-pickle-mcp"]
     }
   }
@@ -158,20 +163,60 @@ npm run build
 }
 ```
 
-## Why Use This?
+**Global installation:**
+```json
+{
+  "mcpServers": {
+    "memory-pickle": {
+      "command": "memory-pickle"
+    }
+  }
+}
+```
+
+## 🎨 Features
+
+**Task Management:**
+- Hierarchical tasks with subtasks
+- Priority levels (critical/high/medium/low)  
+- Progress tracking (0-100%)
+- Blocker documentation
+- Automatic completion detection
+
+**Project Organization:**
+- Multiple concurrent projects
+- Automatic task assignment to current project
+- Project-level progress calculation
+- Status tracking (planning/in_progress/completed)
+
+**Session Continuity:**
+- Auto-loads project status at session start
+- Generates handoff summaries for new chats
+- Preserves context between sessions
+- Session counter tracking
+
+**Memory System:**
+- Categorized memory storage (general/technical/business)
+- Importance levels (low/medium/high/critical)
+- Tag-based organization
+- Search and retrieval functionality
+
+## 🤔 Why Use This?
 
 AI agents forget everything between sessions. This tool fixes that by giving them persistent memory for project work. No more re-explaining what you're building or losing track of progress.
 
 It's designed to work invisibly - the agent just becomes better at remembering and tracking your work.
 
-## License
+## 📄 License
 
-[text](README.md)
+MIT License - Use freely in your projects!
 
-## Version
+## 📊 Version
 
-Current: 1.0.0 (MEM-Pickle MCP - agent planing tools :))
+**Current:** 1.0.0 (MEM-Pickle MCP - agent planing tools :))
+
+**Package:** [@cabbages/memory-pickle-mcp](https://www.npmjs.com/package/@cabbages/memory-pickle-mcp)
 
 ---
 
-*Built for developers who want their AI agents to actually remember what they're working on.*
+*Built for developers who want their AI agents to actually remember what they're working on.* 🚀✨
