@@ -166,7 +166,7 @@ It's designed to work invisibly - the agent just becomes better at remembering a
 
 ## License
 
-MIT
+[text](README.md)
 
 ## Version
 
