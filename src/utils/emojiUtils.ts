@@ -14,14 +14,21 @@ export const EMOJIS = {
   // Task status
   COMPLETED: emoji('✅', '[DONE]'),
   PENDING: emoji('⬜', '[ ]'),
-  
-  // Project status  
+  ACTIVE: emoji('🔄', '[ACTIVE]'),
+
+  // Project and task management
+  PROJECT: emoji('📁', '[PROJECT]'),
+  TASK: emoji('📝', '[TASK]'),
   PROJECT_STATUS: emoji('📊', '##'),
   TASK_LIST: emoji('📋', '##'),
   BLOCKED: emoji('🚨', '##'),
   CRITICAL: emoji('⚡', '##'),
   MEMORY: emoji('🧠', '##'),
-  
+
+  // Templates and categories
+  TEMPLATE: emoji('📋', '[TEMPLATE]'),
+  CATEGORY: emoji('📂', '[CATEGORY]'),
+
   // General
   SUCCESS: emoji('✅', '[OK]'),
   ERROR: emoji('❌', '[ERROR]'),

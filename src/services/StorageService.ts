@@ -344,11 +344,19 @@ export class StorageService {
       const MEMORIES_FILE = path.join(this.dataDir, 'memories.yaml');
       const tempFile = MEMORIES_FILE + '.tmp';
       const yamlContent = serializeDataToYaml(memories);
-      
+
       await fs.writeFile(tempFile, yamlContent, 'utf8');
       await fs.rename(tempFile, MEMORIES_FILE);
-      
+
       return { result: undefined, commit: false };
     });
+  }
+
+  /**
+   * Saves export content to a file
+   */
+  async saveExport(filename: string, content: string): Promise<void> {
+    const exportPath = path.join(this.dataDir, filename);
+    await fs.writeFile(exportPath, content, 'utf8');
   }
 }

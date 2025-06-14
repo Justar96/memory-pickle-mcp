@@ -86,6 +86,20 @@ export class ProjectService {
   }
 
   /**
+   * Updates a project with new values
+   */
+  updateProject(projects: Project[], projectId: string, updates: Partial<Project>): Project {
+    const project = this.findProjectById(projects, projectId);
+    if (!project) {
+      throw new Error(`Project not found: ${projectId}`);
+    }
+
+    // Apply updates
+    Object.assign(project, updates);
+    return project;
+  }
+
+  /**
    * Finds a project by ID
    */
   findProjectById(projects: Project[], projectId: string): Project | undefined {

@@ -70,36 +70,67 @@ Agent: Great! Marking that as complete.
 
 ## 🛠️ Available Tools
 
-The agent has access to **13 tools** organized in 4 categories:
+The agent has access to **17 tools** organized in 5 categories:
 
-### 📁 Project Management
+### 📁 Project Management (4 tools)
 - `create_project` - Initialize new project containers
 - `get_project_status` - Show hierarchical task tree ⭐ *Auto-loads at session start*
-- `set_current_project` - Switch between multiple projects  
+- `update_project` - Modify project details and status
+- `list_projects` - View all projects with completion status
+- `set_current_project` - Switch between multiple projects
 - `generate_handoff_summary` - Create session transitions
 
-### ✅ Task Management
+### ✅ Task Management (4 tools)
 - `create_task` - Add tasks with automatic priority detection
+- `update_task` - Modify task details and properties
 - `toggle_task` - Complete/uncomplete with progress updates
 - `update_task_progress` - Track progress, notes, and blockers
 - `get_tasks` - Filter and display tasks by criteria
 
-### 🧠 Memory Management  
+### 🧠 Memory Management (4 tools)
 - `remember_this` - Store important decisions and context
+- `add_memory` - Alternative memory storage method
 - `recall_context` - Search and retrieve memories
+- `search_memories` - Advanced memory search with filters
 
-### 🔧 Utilities
+### 🔧 Utilities (3 tools)
 - `export_to_markdown` - Generate documentation from project data
 - `apply_template` - Guide users through structured planning
+- `list_templates` - Show available planning templates
 - `list_categories` - Show overview and available templates
+
+### 🛡️ Data Integrity (3 tools)
+- `validate_database` - Check and repair data integrity issues
+- `check_workflow_state` - Verify workflow consistency
+- `repair_orphaned_data` - Fix orphaned tasks and memories
 
 ## 💾 Data Storage
 
 Your data is stored locally in a `.memory-pickle/` folder with split-file architecture:
 - `projects.yaml` - Your projects and metadata
 - `tasks.yaml` - All tasks with hierarchy and progress
-- `memories.yaml` - Important notes and decisions  
-- `meta.yaml` - Session tracking and settings
+- `memories.yaml` - Important notes and decisions
+- `meta.yaml` - Session tracking, settings, and templates
+
+### 🔄 Session Reset
+
+**Need a fresh start?** Simply delete the `.memory-pickle` folder:
+
+```bash
+# Complete reset - removes all projects, tasks, and memories
+rm -rf .memory-pickle
+
+# On Windows
+rmdir /s .memory-pickle
+```
+
+This gives you a completely clean slate. The folder will be recreated automatically when you start a new session. This is the recommended approach when:
+- You want to start over completely
+- Data seems corrupted or inconsistent
+- You're switching to a different project context
+- Testing or development purposes
+
+**⚠️ Warning**: This permanently deletes all your project data. Export important projects first using `export_to_markdown` if needed.
 
 ## 📚 Documentation
 
@@ -215,6 +246,7 @@ npm run build
 - Generates handoff summaries for new chats
 - Preserves context between sessions
 - Session counter tracking
+- Easy reset via `.memory-pickle` folder deletion
 
 **Memory System:**
 - Categorized memory storage (general/technical/business)
@@ -222,21 +254,51 @@ npm run build
 - Tag-based organization
 - Search and retrieval functionality
 
+**Data Integrity:**
+- Automatic validation and repair on startup
+- Orphaned data detection and cleanup
+- Referential integrity checks
+- Workflow state validation
+
 ## 🤔 Why Use This?
 
 AI agents forget everything between sessions. This tool fixes that by giving them persistent memory for project work. No more re-explaining what you're building or losing track of progress.
 
 It's designed to work invisibly - the agent just becomes better at remembering and tracking your work.
 
-## 📄 License
+## � Troubleshooting
 
-MIT License - Use freely in your projects!
+**Agent seems confused or data looks wrong?**
+1. Try the data integrity tools: `validate_database` or `repair_orphaned_data`
+2. For a complete fresh start: delete the `.memory-pickle` folder
+3. Check the [Installation Guide](docs/INSTALLATION.md) for setup issues
+
+**Tools not working?**
+- Ensure you're using the latest version: `npx -y @cabbages/memory-pickle-mcp`
+- Verify your MCP client configuration matches the examples above
+- Check that Node.js 16+ is installed
+
+**Performance issues?**
+- Large projects (1000+ tasks) may be slower
+- Consider using `export_to_markdown` to archive completed projects
+- Reset sessions periodically by deleting `.memory-pickle`
+
+## �📄 License
+
+Apache 2.0 License - Use freely in your projects!
 
 ## 📊 Version
 
-**Current:** 1.0.0 (MEM-Pickle MCP - agent planing tools :))
+**Current:** 1.2.0 (MEM-Pickle MCP - agent planing tools :))
 
 **Package:** [@cabbages/memory-pickle-mcp](https://www.npmjs.com/package/@cabbages/memory-pickle-mcp)
+
+### Recent Updates (v1.2.0)
+- ✅ Fixed MemoryPickleCore compilation issues after refactoring
+- 🛡️ Added comprehensive data integrity tools (3 new tools)
+- 🔧 Enhanced service layer with missing methods
+- 📝 Updated documentation to match current system
+- 🎯 Improved TypeScript type safety and error handling
 
 ---
 

@@ -46,6 +46,23 @@ export class MemoryService {
   }
 
   /**
+   * Creates and adds a memory to the memories array
+   */
+  addMemory(memories: Memory[], args: {
+    title: string;
+    content: string;
+    category?: string;
+    importance?: 'critical' | 'high' | 'medium' | 'low';
+    tags?: string[];
+    task_id?: string;
+    project_id?: string;
+  }): Memory {
+    const memory = this.createMemory(args);
+    memories.push(memory);
+    return memory;
+  }
+
+  /**
    * Searches memories based on query and filters
    */
   searchMemories(memories: Memory[], args: {

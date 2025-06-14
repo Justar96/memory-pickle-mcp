@@ -2,20 +2,22 @@ import { PROJECT_TOOLS } from './ProjectTools.js';
 import { TASK_TOOLS } from './TaskTools.js';
 import { MEMORY_TOOLS } from './MemoryTools.js';
 import { UTILITY_TOOLS } from './UtilityTools.js';
+import { DATA_INTEGRITY_TOOLS } from './dataIntegrityTools.js';
 
 /**
  * Complete MCP Tools Registry
- * All 13 tools organized by category with preserved functionality
+ * All 16 tools organized by category with preserved functionality
  */
 export const ALL_TOOLS = [
   ...PROJECT_TOOLS,
   ...TASK_TOOLS,
   ...MEMORY_TOOLS,
-  ...UTILITY_TOOLS
+  ...UTILITY_TOOLS,
+  ...DATA_INTEGRITY_TOOLS
 ];
 
 // Export individual tool categories for selective use
-export { PROJECT_TOOLS, TASK_TOOLS, MEMORY_TOOLS, UTILITY_TOOLS };
+export { PROJECT_TOOLS, TASK_TOOLS, MEMORY_TOOLS, UTILITY_TOOLS, DATA_INTEGRITY_TOOLS };
 
 // Tool name constants for type safety
 export const TOOL_NAMES = {
@@ -38,7 +40,12 @@ export const TOOL_NAMES = {
   // Utilities
   EXPORT_TO_MARKDOWN: 'export_to_markdown',
   APPLY_TEMPLATE: 'apply_template',
-  LIST_CATEGORIES: 'list_categories'
+  LIST_CATEGORIES: 'list_categories',
+
+  // Data Integrity
+  VALIDATE_DATABASE: 'validate_database',
+  CHECK_WORKFLOW_STATE: 'check_workflow_state',
+  REPAIR_ORPHANED_DATA: 'repair_orphaned_data'
 } as const;
 
 // Type for tool names

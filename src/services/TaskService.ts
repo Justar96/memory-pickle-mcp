@@ -59,19 +59,7 @@ export class TaskService {
     };
   }
 
-  /**
-   * Toggles task completion status
-   */
-  toggleTask(task: Task): void {
-    task.completed = !task.completed;
-    if (task.completed) {
-      task.completed_date = new Date().toISOString();
-      task.progress = 100;
-    } else {
-      task.completed_date = undefined;
-      task.progress = 0; // Reset progress to 0 when marking as incomplete
-    }
-  }
+
 
   /**
    * Updates task progress and related fields
@@ -149,6 +137,70 @@ export class TaskService {
    */
   findTaskById(tasks: Task[], taskId: string): Task | undefined {
     return tasks.find(t => t.id === taskId);
+  }
+
+  /**
+   * Updates a task in the tasks array
+   */
+  updateTask(tasks: Task[], taskId: string, updates: Partial<Task>): Task {
+    const task = this.findTaskById(tasks, taskId);
+    if (!task) {
+      throw new Error(`Task not found: ${taskId}`);
+    }
+
+    // Apply updates
+    Object.assign(task, updates);
+
+    // Handle completion logic
+    if (updates.completed !== undefined) {
+      if (updates.completed) {
+        task.completed_date = new Date().toISOString();
+        task.progress = 100;
+      } else {
+        task.completed_date = undefined;
+        task.progress = 0;
+      }
+    }
+
+    return task;
+  }
+
+  /**
+   * Toggles task completion status (array version)
+   */
+  toggleTask(tasks: Task[], taskId: string): Task;
+  toggleTask(task: Task): void;
+  toggleTask(tasksOrTask: Task[] | Task, taskId?: string): Task | void {
+    if (Array.isArray(tasksOrTask)) {
+      // Array version
+      const task = this.findTaskById(tasksOrTask, taskId!);
+      if (!task) {
+        throw new Error(`Task not found: ${taskId}`);
+      }
+
+      // Toggle the task
+      task.completed = !task.completed;
+      if (task.completed) {
+        task.completed_date = new Date().toISOString();
+        task.progress = 100;
+      } else {
+        task.completed_date = undefined;
+        task.progress = 0;
+      }
+
+      return task;
+    } else {
+      // Single task version (existing implementation)
+      const task = tasksOrTask;
+      task.completed = !task.completed;
+      if (task.completed) {
+        task.completed_date = new Date().toISOString();
+        task.progress = 100;
+      } else {
+        task.completed_date = undefined;
+        task.progress = 0;
+      }
+    }
   }
 
   /**
