@@ -44,7 +44,7 @@ Then use:
 
 ### Local Development
 ```bash
-git clone https://github.com/cabbages/memory-pickle-mcp.git
+git clone https://github.com/Justar96/memory-pickle-mcp.git
 cd memory-pickle-mcp
 npm install
 npm run build

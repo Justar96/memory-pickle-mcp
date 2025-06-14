@@ -1,6 +1,6 @@
 {
   "name": "@cabbages/memory-pickle-mcp",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "MEM-Pickle MCP - agent planing tools :)",
   "keywords": [
     "mcp",
@@ -15,7 +15,7 @@
     "session-continuity"
   ],
   "author": "Cabbages Code",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "bin": {
     "memory-pickle": "build/index.js"
@@ -40,8 +40,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cabbages/memory-pickle-mcp.git"
+    "url": "git+https://github.com/Justar96/memory-pickle-mcp.git"
   },
+  "homepage": "https://pickle.cabbages.work",
   "mcp": {
     "configFile": "mcp.config.json",
     "instructions": "agent-instructions.xml",

@@ -33,7 +33,7 @@ memory-pickle-mcp/
 
 ### Installation
 ```bash
-git clone https://github.com/cabbages/memory-pickle-mcp.git
+git clone https://github.com/Justar96/memory-pickle-mcp.git
 cd memory-pickle-mcp
 npm install
 ```

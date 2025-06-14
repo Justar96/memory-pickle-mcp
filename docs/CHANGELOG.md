@@ -94,7 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Infrastructure
 - NPM package published as `@cabbages/memory-pickle-mcp`
 - GitHub repository with public access
-- MIT license for open source use
+- Apache 2.0 license for open source use
 - Automated build process with executable permissions
 - Package size optimization (33.3 kB)
 
@@ -132,7 +132,7 @@ Legacy memory files are automatically imported on first run if main database is 
 ## Support
 
 For issues, feature requests, or questions:
-- GitHub Issues: https://github.com/cabbages/memory-pickle-mcp/issues
+- GitHub Issues: https://github.com/Justar96/memory-pickle-mcp/issues
 - NPM Package: https://www.npmjs.com/package/@cabbages/memory-pickle-mcp
 
 ## Contributors

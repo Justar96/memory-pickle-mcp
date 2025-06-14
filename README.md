@@ -19,6 +19,12 @@ Add this to your MCP configuration:
 
 That's it! Your agent will now remember your projects and tasks across sessions.
 
+## 🔗 Links
+
+- **🌐 Website:** [pickle.cabbages.work](https://pickle.cabbages.work)
+- **📦 GitHub:** [Justar96/memory-pickle-mcp](https://github.com/Justar96/memory-pickle-mcp)
+- **📋 NPM Package:** [@cabbages/memory-pickle-mcp](https://www.npmjs.com/package/@cabbages/memory-pickle-mcp)
+
 ## 🎯 What It Does
 
 - **🧠 Remembers your work** - Agent loads your current project when you start chatting
@@ -159,7 +165,7 @@ npm install -g @cabbages/memory-pickle-mcp
 
 **Local development:**
 ```bash
-git clone https://github.com/cabbages/memory-pickle-mcp.git
+git clone https://github.com/Justar96/memory-pickle-mcp.git
 cd memory-pickle-mcp
 npm install
 npm run build
