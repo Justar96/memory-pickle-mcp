@@ -11,10 +11,10 @@ export async function ensureDirectoryExists(dirPath: string): Promise<void> {
   try {
     await fs.mkdir(dirPath, { recursive: true, mode: 0o700 }); // Secure permissions: owner only
   } catch (error: any) {
-    // Ignore EEXIST error, which means directory already exists
+    // Only ignore EEXIST error
     if (error.code !== 'EEXIST') {
       console.error('Error creating data directory:', error);
-      throw error;
+      throw new Error(`Failed to create directory ${dirPath}: ${error.message}`);
     }
   }
 }
@@ -130,7 +130,7 @@ export async function withFileLock<T>(
       // Verify we still own the lock before releasing
       const lockContent = await fs.readFile(lockFile, 'utf8');
       const lockInfo: LockInfo = JSON.parse(lockContent);
-      
+
       if (lockInfo.token === lockToken && lockInfo.pid === process.pid) {
         await fs.unlink(lockFile);
       } else {
@@ -166,15 +166,20 @@ export async function withFileLock<T>(
     process.exit();
   };
   
+  // Add listeners
   process.once('exit', cleanup);
   process.once('SIGINT', handleSignal);
   process.once('SIGTERM', handleSignal);
 
-  await acquireLock();
   try {
-    return await operation();
+    await acquireLock();
+    try {
+      return await operation();
+    } finally {
+      await releaseLock();
+    }
   } finally {
-    await releaseLock();
+    // ALWAYS remove listeners, even if operation fails
     process.removeListener('exit', cleanup);
     process.removeListener('SIGINT', handleSignal);
     process.removeListener('SIGTERM', handleSignal);

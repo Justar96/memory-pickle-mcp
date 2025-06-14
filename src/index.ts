@@ -16,6 +16,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
@@ -28,26 +29,24 @@ import type {
   Project,
   Memory,
   ProjectDatabase,
-  ProjectSummary,
-  HandoffSummary
+  ProjectSummary
 } from './types/index.js';
 
 // Import configuration
-import { DATA_DIR, PROJECT_FILE, SERVER_CONFIG } from './config/constants.js';
+import { DATA_DIR, PROJECTS_FILE, TASKS_FILE, MEMORIES_FILE, SERVER_CONFIG } from './config/constants.js';
 import { DEFAULT_TEMPLATES } from './config/templates.js';
 
 // Import utilities
-import { ensureDirectoryExists, fileExists } from './utils/fileUtils.js';
-import { serializeToYaml, deserializeFromYaml } from './utils/yamlUtils.js';
+import { ensureDirectoryExists } from './utils/fileUtils.js';
 import { generateId } from './utils/idGenerator.js';
 import { EMOJIS, sectionHeader, taskCheckbox } from './utils/emojiUtils.js';
 import { validateExportPath, setSecureFilePermissions } from './utils/securityUtils.js';
 
 // Import services
-import { StorageService, ProjectService, TaskService, MemoryService, IntelligentTaskService } from './services/index.js';
+import { StorageService, ProjectService, TaskService, MemoryService } from './services/index.js';
 
 // Import tools
-import { ALL_TOOLS, TOOL_NAMES } from './tools/index.js';
+import { ALL_TOOLS } from './tools/index.js';
 
 
 class MemoryPickleServer {
@@ -56,7 +55,6 @@ class MemoryPickleServer {
   private projectService: ProjectService;
   private taskService: TaskService;
   private memoryService: MemoryService;
-  private intelligentTaskService: IntelligentTaskService;
   private sessionStartTime: Date;
   private taskIndex: Map<string, Task>;
 
@@ -65,15 +63,13 @@ class MemoryPickleServer {
     storageService: StorageService,
     projectService: ProjectService,
     taskService: TaskService,
-    memoryService: MemoryService,
-    intelligentTaskService: IntelligentTaskService
+    memoryService: MemoryService
   ) {
     this.database = database;
     this.storageService = storageService;
     this.projectService = projectService;
     this.taskService = taskService;
     this.memoryService = memoryService;
-    this.intelligentTaskService = intelligentTaskService;
     this.sessionStartTime = new Date();
     this.taskIndex = new Map();
     this.buildTaskIndex();
@@ -91,8 +87,7 @@ class MemoryPickleServer {
     const projectService = new ProjectService();
     const taskService = new TaskService();
     const memoryService = new MemoryService();
-    const intelligentTaskService = new IntelligentTaskService();
-    
+
     const database = await storageService.loadDatabase();
 
     // Backward compatibility: Load legacy memories if main DB is empty
@@ -103,8 +98,8 @@ class MemoryPickleServer {
         console.error(`Loaded ${legacyMemories.length} memories from legacy file.`);
       }
     }
-    
-    return new MemoryPickleServer(database, storageService, projectService, taskService, memoryService, intelligentTaskService);
+
+    return new MemoryPickleServer(database, storageService, projectService, taskService, memoryService);
   }
 
   private async saveDatabase(): Promise<void> {
@@ -114,7 +109,7 @@ class MemoryPickleServer {
       Object.assign(db, this.database);
       return { result: db, commit: true };
     });
-    
+
     // The legacy save also uses the lock
     if (this.database.memories && this.database.memories.length > 0) {
       await this.storageService.saveMemories(this.database.memories);
@@ -125,10 +120,10 @@ class MemoryPickleServer {
   async create_project(args: any): Promise<any> {
     const result = await this.storageService.runExclusive(async (db) => {
       const project = this.projectService.createProject(args);
-      
+
       db.projects.push(project);
       db.meta.current_project_id = project.id;
-      
+
       return {
         result: project,
         commit: true,
@@ -167,36 +162,20 @@ Use \`create_task\` to start adding tasks to your project.`
         project_id: targetProjectId
       });
 
-      // Apply intelligent analysis to the task
-      const complexityAnalysis = this.intelligentTaskService.analyzeTaskComplexity(task);
-      const effortEstimate = this.intelligentTaskService.estimateEffort(task);
-      const dependencyAnalysis = this.intelligentTaskService.detectDependencies(task, db.tasks);
-
-      // Enhance task with intelligent data
-      task.complexity_score = complexityAnalysis.confidence;
-      task.effort_estimate = effortEstimate.estimate;
-      task.suggested_subtasks = complexityAnalysis.suggestions;
-      task.dependencies = dependencyAnalysis.dependencies.map(dep => dep.id);
-
       db.tasks.push(task);
 
       // Link task to project and parent
       const project = this.projectService.findProjectById(db.projects, targetProjectId);
       const parentTask = args.parent_id ? db.tasks.find(t => t.id === args.parent_id) : undefined;
-      
+
       if (project) {
         this.taskService.linkTaskToProject(task, project, parentTask);
       }
 
       this.projectService.updateProjectCompletion(project!, db.tasks);
-      
+
       return {
-        result: {
-          task,
-          complexityAnalysis,
-          effortEstimate,
-          dependencyAnalysis
-        },
+        result: task,
         commit: true,
         changedParts: new Set(['tasks', 'projects'] as const)
       };
@@ -211,26 +190,22 @@ Use \`create_task\` to start adding tasks to your project.`
         type: "text",
         text: `${EMOJIS.SUCCESS} Task created successfully!
 
-**Task:** ${result.task.title}
-**ID:** ${result.task.id}
-**Priority:** ${result.task.priority}
-**Effort Estimate:** ${result.task.effort_estimate} (${result.effortEstimate.reasoning})
+**Task:** ${result.title}
+**ID:** ${result.id}
+**Priority:** ${result.priority}
 **Status:** ⬜ Not completed
 ${args.parent_id ? `**Parent Task:** ${args.parent_id}` : ''}
 ${args.due_date ? `**Due Date:** ${args.due_date}` : ''}
+${result.description ? `**Description:** ${result.description}` : ''}
 
-${result.complexityAnalysis.shouldBreakdown ? `💡 **AI Suggestion:** This task appears complex and might benefit from being broken down into subtasks:\n${result.task.suggested_subtasks?.map(s => `• ${s}`).join('\n')}` : ''}
-
-${result.dependencyAnalysis.dependencies.length > 0 ? `🔗 **Dependencies:** ${result.dependencyAnalysis.suggestions.slice(0, 2).join(', ')}` : ''}
-
-Use \`toggle_task\` with ID "${result.task.id}" to mark it as complete.`
+Use \`toggle_task\` with ID "${result.id}" to mark it as complete.`
       }]
     };
   }
 
   async toggle_task(args: any): Promise<any> {
     const { task_id } = args;
-    
+
     if (!task_id) {
       throw new Error('Task ID is required');
     }
@@ -299,7 +274,7 @@ Project completion: ${result.projectCompletion}%`
     }
 
     const summary = this.projectService.generateProjectSummary(project, this.database.tasks);
-    
+
     let result = `# ${sectionHeader('Project Status', '📊')}: ${project.name}\n\n`;
     result += `**Status:** ${project.status} | **Completion:** ${summary.completion_percentage}%\n`;
     result += `**Total Tasks:** ${summary.total_tasks} | **Completed:** ${summary.completed_tasks} | **In Progress:** ${summary.in_progress_tasks}\n\n`;
@@ -350,7 +325,7 @@ Project completion: ${result.projectCompletion}%`
 
   async generate_handoff_summary(args: any = {}): Promise<any> {
     const { format = 'detailed' } = args;
-    
+
     const result = await this.storageService.runExclusive(async (db) => {
       const projectId = db.meta.current_project_id;
 
@@ -376,7 +351,7 @@ Project completion: ${result.projectCompletion}%`
       db.meta.session_count++;
 
       const formattedResult = this.memoryService.formatHandoffSummary(handoff, format);
-      
+
       return {
         result: formattedResult,
         commit: true,
@@ -398,7 +373,7 @@ Project completion: ${result.projectCompletion}%`
 
   async update_task_progress(args: any): Promise<any> {
     const { task_id, progress, notes, blockers } = args;
-    
+
     if (!task_id) {
       throw new Error('Task ID is required');
     }
@@ -472,12 +447,12 @@ ${notes ? `**New Note:** ${notes}` : ''}`
 
   private generateProjectSummary(project: Project): ProjectSummary {
     const tasks = this.database.tasks.filter(t => t.project_id === project.id);
-    
+
     const completed = tasks.filter(t => t.completed);
     const inProgress = tasks.filter(t => !t.completed && t.progress && t.progress > 0);
     const blocked = tasks.filter(t => t.blockers && t.blockers.length > 0);
     const critical = tasks.filter(t => t.priority === 'critical');
-    
+
     const recentCompletions = completed
       .filter(t => t.completed_date)
       .sort((a, b) => new Date(b.completed_date!).getTime() - new Date(a.completed_date!).getTime())
@@ -508,9 +483,9 @@ ${notes ? `**New Note:** ${notes}` : ''}`
     const indentStr = '  '.repeat(indent);
     const checkbox = task.completed ? '✅' : '⬜';
     const progress = task.progress ? ` (${task.progress}%)` : '';
-    
+
     let result = `${indentStr}${checkbox} ${task.title}${progress} [${task.priority}]\n`;
-    
+
     if (task.blockers && task.blockers.length > 0) {
       result += `${indentStr}  🚨 Blocked: ${task.blockers.join(', ')}\n`;
     }
@@ -536,11 +511,11 @@ ${notes ? `**New Note:** ${notes}` : ''}`
     }
 
     let result = `# 📊 All Projects Overview\n\n`;
-    
+
     this.database.projects.forEach(project => {
       const tasks = this.database.tasks.filter(t => t.project_id === project.id);
       const completedTasks = tasks.filter(t => t.completed).length;
-      
+
       result += `## ${project.name}\n`;
       result += `**Status:** ${project.status} | **Completion:** ${project.completion_percentage}%\n`;
       result += `**Tasks:** ${completedTasks}/${tasks.length} completed\n`;
@@ -558,7 +533,7 @@ ${notes ? `**New Note:** ${notes}` : ''}`
   // Legacy methods for backward compatibility
   async remember_this(args: any): Promise<any> {
     const { title, content, category = 'general', importance = 'medium', tags = [], task_id, project_id } = args;
-    
+
     if (!title || !content) {
       throw new Error('Title and content are required');
     }
@@ -578,7 +553,7 @@ ${notes ? `**New Note:** ${notes}` : ''}`
       };
 
       db.memories.push(memory);
-      
+
       return {
         result: memory,
         commit: true,
@@ -605,7 +580,7 @@ ${notes ? `**New Note:** ${notes}` : ''}`
 
   async recall_context(args: any): Promise<any> {
     const { query, category, tags, limit = 10 } = args;
-    
+
     // If no parameters provided at all, show project status
     if (!query && !category && (!tags || tags.length === 0)) {
       return this.get_project_status();
@@ -621,7 +596,7 @@ ${notes ? `**New Note:** ${notes}` : ''}`
     // Always filter memories when any parameter is provided
     results = this.database.memories.filter(memory => {
       let matches = true;
-      
+
       // Apply query filter if provided
       if (query) {
         const lowerQuery = query.toLowerCase();
@@ -631,17 +606,17 @@ ${notes ? `**New Note:** ${notes}` : ''}`
           memory.tags.some(tag => tag.toLowerCase().includes(lowerQuery));
         matches = matches && matchesQuery;
       }
-      
+
       // Apply category filter if provided
       if (category) {
         matches = matches && memory.category === category;
       }
-      
+
       // Apply tags filter if provided
       if (tags && tags.length > 0) {
         matches = matches && tags.some((tag: string) => memory.tags.includes(tag));
       }
-      
+
       return matches;
     }).slice(0, limit);
 
@@ -650,7 +625,7 @@ ${notes ? `**New Note:** ${notes}` : ''}`
       if (category) filterDesc.push(`category: ${category}`);
       if (tags && tags.length > 0) filterDesc.push(`tags: ${tags.join(', ')}`);
       if (query) filterDesc.push(`query: "${query}"`);
-      
+
       return {
         content: [{
           type: "text",
@@ -678,7 +653,7 @@ ${memory.content}`;
 
   async export_to_markdown(args: any): Promise<any> {
     const { output_file = 'project-export.md', include_tasks = true, include_memories = true } = args;
-    
+
     let markdown = `# Project Export\n\n`;
     markdown += `**Generated:** ${new Date().toISOString()}\n`;
     markdown += `**Session Count:** ${this.database.meta.session_count}\n\n`;
@@ -686,16 +661,16 @@ ${memory.content}`;
     // Export projects and tasks
     if (include_tasks) {
       markdown += `## Projects & Tasks\n\n`;
-      
+
       this.database.projects.forEach(project => {
         markdown += `### ${project.name}\n`;
         markdown += `**Status:** ${project.status} | **Completion:** ${project.completion_percentage}%\n\n`;
-        
+
         const tasks = this.database.tasks.filter(t => t.project_id === project.id && !t.parent_id);
         tasks.forEach(task => {
           markdown += this.exportTaskTree(task, 0);
         });
-        
+
         markdown += '\n';
       });
     }
@@ -703,7 +678,7 @@ ${memory.content}`;
     // Export memories
     if (include_memories && this.database.memories.length > 0) {
       markdown += `## Memories\n\n`;
-      
+
       this.database.memories.forEach(memory => {
         markdown += `### ${memory.title}\n`;
         markdown += `**Category:** ${memory.category} | **Importance:** ${memory.importance}\n`;
@@ -717,16 +692,16 @@ ${memory.content}`;
       // Validate and sanitize the output file path to prevent path traversal attacks
       const safePath = validateExportPath(output_file, DATA_DIR);
       const outputDir = path.dirname(safePath);
-      
+
       // Ensure output directory exists
       await ensureDirectoryExists(outputDir);
-      
+
       // Write file with proper async handling
       await fs.promises.writeFile(safePath, markdown, 'utf8');
-      
+
       // Set secure file permissions
       await setSecureFilePermissions(safePath);
-      
+
       return {
         content: [{
           type: "text",
@@ -749,16 +724,16 @@ ${memory.content}`;
   private exportTaskTree(task: Task, indent: number): string {
     const indentStr = '  '.repeat(indent);
     const checkbox = task.completed ? '- [x]' : '- [ ]';
-    
+
     let result = `${indentStr}${checkbox} ${task.title}`;
     if (task.priority !== 'medium') result += ` (${task.priority})`;
     if (task.progress && !task.completed) result += ` - ${task.progress}%`;
     result += '\n';
-    
+
     if (task.description) {
       result += `${indentStr}  > ${task.description}\n`;
     }
-    
+
     if (task.blockers && task.blockers.length > 0) {
       result += `${indentStr}  > 🚨 Blocked: ${task.blockers.join(', ')}\n`;
     }
@@ -775,7 +750,7 @@ ${memory.content}`;
 
   async apply_template(args: any): Promise<any> {
     const { template_name, context = {} } = args;
-    
+
     if (!template_name) {
       throw new Error('Template name is required');
     }
@@ -787,7 +762,7 @@ ${memory.content}`;
     }
 
     let result = `📋 **Template: ${template_name}**\n**Category:** ${template.category}\n\n`;
-    
+
     template.structure.forEach((step, index) => {
       result += `**${index + 1}. ${step.step}**\n${step.prompt}\n\n`;
     });
@@ -807,7 +782,7 @@ ${memory.content}`;
 
   async list_categories(): Promise<any> {
     let result = `📊 **Project Management Overview**\n\n`;
-    
+
     // Show project stats
     result += `**Active Projects:** ${this.database.projects.length}\n`;
     result += `**Total Tasks:** ${this.database.tasks.length}\n`;
@@ -832,7 +807,7 @@ ${memory.content}`;
 
   async set_current_project(args: any): Promise<any> {
     const { project_id } = args;
-    
+
     if (!project_id) {
       throw new Error('Project ID is required');
     }
@@ -844,7 +819,7 @@ ${memory.content}`;
       }
 
       db.meta.current_project_id = project_id;
-      
+
       return {
         result: project,
         commit: true,
@@ -865,225 +840,13 @@ ${memory.content}`;
   }
 
   // Intelligent Task Analysis Methods
-  async analyze_task(args: any): Promise<any> {
-    const { task_id } = args;
-    
-    if (!task_id) {
-      throw new Error('Task ID is required');
-    }
 
-    const task = this.taskIndex.get(task_id);
-    if (!task) {
-      throw new Error(`Task not found: ${task_id}`);
-    }
 
-    const complexityAnalysis = this.intelligentTaskService.analyzeTaskComplexity(task);
-    const effortEstimate = this.intelligentTaskService.estimateEffort(task);
-    const dependencyAnalysis = this.intelligentTaskService.detectDependencies(task, this.database.tasks);
 
-    let result = `${EMOJIS.BRAIN} **Intelligent Task Analysis**\n\n`;
-    result += `**Task:** ${task.title}\n`;
-    result += `**Complexity Score:** ${complexityAnalysis.confidence}/100\n`;
-    result += `**Effort Estimate:** ${effortEstimate.estimate} (${effortEstimate.reasoning})\n\n`;
 
-    if (complexityAnalysis.shouldBreakdown) {
-      result += `💡 **Breakdown Recommended:** ${complexityAnalysis.reasoning}\n\n`;
-      result += `**Suggested Subtasks:**\n${complexityAnalysis.suggestions.map(s => `• ${s}`).join('\n')}\n\n`;
-    }
 
-    if (dependencyAnalysis.dependencies.length > 0) {
-      result += `🔗 **Dependencies Detected:**\n${dependencyAnalysis.suggestions.slice(0, 3).join('\n')}\n\n`;
-    }
 
-    result += `**Analysis Summary:**\n${complexityAnalysis.reasoning}`;
 
-    return {
-      content: [{
-        type: "text",
-        text: result
-      }]
-    };
-  }
-
-  async suggest_subtasks(args: any): Promise<any> {
-    const { task_id, auto_create = false } = args;
-    
-    if (!task_id) {
-      throw new Error('Task ID is required');
-    }
-
-    const task = this.taskIndex.get(task_id);
-    if (!task) {
-      throw new Error(`Task not found: ${task_id}`);
-    }
-
-    const complexityAnalysis = this.intelligentTaskService.analyzeTaskComplexity(task);
-    
-    if (!complexityAnalysis.shouldBreakdown) {
-      return {
-        content: [{
-          type: "text",
-          text: `${EMOJIS.INFO} Task "${task.title}" doesn't appear to need breakdown.\n\n**Reason:** ${complexityAnalysis.reasoning}`
-        }]
-      };
-    }
-
-    let result = `${EMOJIS.LIGHTBULB} **Intelligent Subtask Suggestions**\n\n`;
-    result += `**Parent Task:** ${task.title}\n`;
-    result += `**Breakdown Confidence:** ${complexityAnalysis.confidence}%\n\n`;
-    result += `**Suggested Subtasks:**\n${complexityAnalysis.suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\n`;
-
-    if (auto_create) {
-      const createdSubtasks = [];
-      for (const suggestion of complexityAnalysis.suggestions) {
-        try {
-          const subtaskResult = await this.create_task({
-            title: suggestion,
-            parent_id: task_id,
-            project_id: task.project_id,
-            priority: 'medium'
-          });
-          createdSubtasks.push(suggestion);
-        } catch (error) {
-          console.error(`Failed to create subtask: ${suggestion}`, error);
-        }
-      }
-      
-      if (createdSubtasks.length > 0) {
-        result += `✅ **Auto-created ${createdSubtasks.length} subtasks:**\n${createdSubtasks.map(s => `• ${s}`).join('\n')}\n\n`;
-      }
-    } else {
-      result += `💡 Use \`suggest_subtasks\` with \`auto_create: true\` to automatically create these subtasks.`;
-    }
-
-    return {
-      content: [{
-        type: "text",
-        text: result
-      }]
-    };
-  }
-
-  async detect_blockers(args: any = {}): Promise<any> {
-    const { task_id, project_id, scope = 'task' } = args;
-    
-    let targetTasks: Task[] = [];
-    let analysisScope = '';
-
-    if (scope === 'task' && task_id) {
-      const task = this.taskIndex.get(task_id);
-      if (!task) {
-        throw new Error(`Task not found: ${task_id}`);
-      }
-      targetTasks = [task];
-      analysisScope = `Task: ${task.title}`;
-    } else if (scope === 'project' || project_id) {
-      const targetProjectId = project_id || this.database.meta.current_project_id;
-      if (!targetProjectId) {
-        throw new Error('No active project. Specify project_id or set current project.');
-      }
-      targetTasks = this.database.tasks.filter(t => t.project_id === targetProjectId);
-      const project = this.database.projects.find(p => p.id === targetProjectId);
-      analysisScope = `Project: ${project?.name || targetProjectId}`;
-    } else {
-      targetTasks = this.database.tasks;
-      analysisScope = 'All tasks';
-    }
-
-    const blockerAnalysis = this.intelligentTaskService.identifyPotentialBlockers(targetTasks, this.database.tasks);
-
-    let result = `${EMOJIS.WARNING} **Proactive Blocker Detection**\n\n`;
-    result += `**Analysis Scope:** ${analysisScope}\n`;
-    result += `**Tasks Analyzed:** ${targetTasks.length}\n\n`;
-
-    if (blockerAnalysis.length === 0) {
-      result += `✅ **No significant blockers detected!**\n\nAll analyzed tasks appear to have clear paths forward.`;
-    } else {
-      result += `**Potential Blockers Identified:**\n\n`;
-      blockerAnalysis.forEach((analysis, index) => {
-        result += `**${index + 1}. ${analysis.task.title}**\n`;
-        result += `Risk Level: ${analysis.riskLevel}\n`;
-        result += `Blockers: ${analysis.potentialBlockers.join(', ')}\n`;
-        if (analysis.suggestions.length > 0) {
-          result += `Suggestions: ${analysis.suggestions.join(', ')}\n`;
-        }
-        result += `\n`;
-      });
-
-      result += `💡 **Recommendations:**\n`;
-      result += `• Address high-risk blockers first\n`;
-      result += `• Consider creating preparation tasks for identified risks\n`;
-      result += `• Review dependencies before starting blocked tasks`;
-    }
-
-    return {
-      content: [{
-        type: "text",
-        text: result
-      }]
-    };
-  }
-
-  async optimize_workflow(args: any = {}): Promise<any> {
-    const { project_id, focus = 'balanced' } = args;
-    
-    const targetProjectId = project_id || this.database.meta.current_project_id;
-    if (!targetProjectId) {
-      throw new Error('No active project. Specify project_id or set current project.');
-    }
-
-    const project = this.database.projects.find(p => p.id === targetProjectId);
-    const projectTasks = this.database.tasks.filter(t => t.project_id === targetProjectId);
-    
-    if (projectTasks.length === 0) {
-      return {
-        content: [{
-          type: "text",
-          text: `${EMOJIS.INFO} No tasks found in project to optimize.`
-        }]
-      };
-    }
-
-    const workflowOptimization = this.intelligentTaskService.optimizeWorkflow(projectTasks, focus);
-
-    let result = `${EMOJIS.ROCKET} **Intelligent Workflow Optimization**\n\n`;
-    result += `**Project:** ${project?.name || targetProjectId}\n`;
-    result += `**Focus:** ${focus}\n`;
-    result += `**Tasks Analyzed:** ${projectTasks.length}\n\n`;
-
-    result += `**Optimal Task Order:**\n`;
-    workflowOptimization.recommendedOrder.forEach((task, index) => {
-      const priority = task.priority === 'critical' ? '🔥' : task.priority === 'high' ? '⚡' : task.priority === 'medium' ? '📋' : '📝';
-      const effort = task.effort_estimate ? ` [${task.effort_estimate}]` : '';
-      result += `${index + 1}. ${priority} ${task.title}${effort}\n`;
-    });
-
-    result += `\n**Optimization Insights:**\n`;
-    workflowOptimization.insights.forEach(insight => {
-      result += `• ${insight}\n`;
-    });
-
-    if (workflowOptimization.parallelOpportunities.length > 0) {
-      result += `\n**Parallel Work Opportunities:**\n`;
-      workflowOptimization.parallelOpportunities.forEach(opportunity => {
-        result += `• ${opportunity}\n`;
-      });
-    }
-
-    if (workflowOptimization.efficiencyTips.length > 0) {
-      result += `\n💡 **Efficiency Tips:**\n`;
-      workflowOptimization.efficiencyTips.forEach(tip => {
-        result += `• ${tip}\n`;
-      });
-    }
-
-    return {
-      content: [{
-        type: "text",
-        text: result
-      }]
-    };
-  }
 }
 
 const server = new Server(
@@ -1104,16 +867,26 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 });
 
 // Handle tool calls
-// This function is defined outside the main block to be referenced later.
 const callToolHandler = async (request: any, memoryServer: MemoryPickleServer) => {
   const { name, arguments: args } = request.params;
 
+  // Simple whitelist of allowed methods
+  const allowedMethods = [
+    'create_project', 'get_project_status', 'update_project', 'list_projects',
+    'create_task', 'update_task', 'toggle_task', 'list_tasks', 'get_tasks', 'update_task_progress',
+    'remember_this', 'recall_context', 'add_memory', 'search_memories',
+    'export_to_markdown', 'list_templates', 'list_categories', 'generate_handoff_summary'
+  ];
+
+  if (!allowedMethods.includes(name)) {
+    throw new Error(`Unknown or unauthorized tool: ${name}`);
+  }
+
   try {
-    // Dynamically call the method on the server instance
     if (typeof (memoryServer as any)[name] === 'function') {
       return await (memoryServer as any)[name](args);
     } else {
-      throw new Error(`Unknown tool: ${name}`);
+      throw new Error(`Tool not implemented: ${name}`);
     }
   } catch (error) {
     return {
@@ -1129,13 +902,53 @@ const callToolHandler = async (request: any, memoryServer: MemoryPickleServer) =
 // List resources
 server.setRequestHandler(ListResourcesRequestSchema, async () => {
   const resources = [];
-  
-  if (fs.existsSync(PROJECT_FILE)) {
+
+  // Check for split files (current architecture)
+  const metaFile = path.join(DATA_DIR, 'meta.yaml');
+  if (fs.existsSync(PROJECTS_FILE)) {
     resources.push({
-      uri: `file://${PROJECT_FILE}`,
+      uri: `file://projects.yaml`,
       mimeType: "text/yaml",
-      name: "Project Database",
-      description: "YAML database containing projects, tasks, and memories"
+      name: "Projects",
+      description: "Project data and metadata"
+    });
+  }
+
+  if (fs.existsSync(TASKS_FILE)) {
+    resources.push({
+      uri: `file://tasks.yaml`,
+      mimeType: "text/yaml",
+      name: "Tasks",
+      description: "Task hierarchy and progress tracking"
+    });
+  }
+
+  if (fs.existsSync(MEMORIES_FILE)) {
+    resources.push({
+      uri: `file://memories.yaml`,
+      mimeType: "text/yaml",
+      name: "Memories",
+      description: "Persistent memory storage and notes"
+    });
+  }
+
+  if (fs.existsSync(metaFile)) {
+    resources.push({
+      uri: `file://meta.yaml`,
+      mimeType: "text/yaml",
+      name: "Metadata",
+      description: "Session tracking, templates, and configuration"
+    });
+  }
+
+  // Check for exported markdown files
+  const exportFile = path.join(DATA_DIR, 'project-export.md');
+  if (fs.existsSync(exportFile)) {
+    resources.push({
+      uri: `file://project-export.md`,
+      mimeType: "text/markdown",
+      name: "Project Export",
+      description: "Exported project summary in markdown format"
     });
   }
 
@@ -1144,30 +957,109 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
 
 // Read resources
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-  const url = new URL(request.params.uri);
-  
-  if (url.protocol === 'file:') {
-    const filePath = url.pathname;
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf8');
-      return {
-        contents: [{
-          uri: request.params.uri,
-          mimeType: "text/yaml",
-          text: content
-        }]
-      };
+  try {
+    const url = new URL(request.params.uri);
+    console.error(`Debug: Reading resource URI: ${request.params.uri}`);
+    console.error(`Debug: URL protocol: ${url.protocol}, pathname: ${url.pathname}`);
+
+    if (url.protocol === 'file:') {
+      // Extract filename from URL - handle both with and without leading slash
+      let fileName = url.pathname;
+      if (fileName.startsWith('/')) {
+        fileName = fileName.substring(1);
+      }
+
+      console.error(`Debug: Extracted filename: ${fileName}`);
+
+      // Map common filenames to actual file paths
+      let actualFilePath;
+      switch (fileName) {
+        case 'projects.yaml':
+          actualFilePath = PROJECTS_FILE;
+          break;
+        case 'tasks.yaml':
+          actualFilePath = TASKS_FILE;
+          break;
+        case 'memories.yaml':
+          actualFilePath = MEMORIES_FILE;
+          break;
+        case 'meta.yaml':
+          actualFilePath = path.join(DATA_DIR, 'meta.yaml');
+          break;
+        case 'project-export.md':
+          actualFilePath = path.join(DATA_DIR, 'project-export.md');
+          break;
+        default:
+          // Fallback to direct path construction
+          actualFilePath = path.join(DATA_DIR, fileName);
+      }
+
+      console.error(`Debug: Resolved file path: ${actualFilePath}`);
+
+      // Security validation - ensure resolved path is within data directory
+      const resolvedPath = path.resolve(actualFilePath);
+      const dataDir = path.resolve(DATA_DIR);
+
+      if (!resolvedPath.startsWith(dataDir)) {
+        throw new Error('Access denied: File outside allowed directory');
+      }
+
+      if (fs.existsSync(resolvedPath)) {
+        // Check if it's actually a file, not a directory
+        const stats = fs.statSync(resolvedPath);
+        if (stats.isDirectory()) {
+          throw new Error(`Path is a directory, not a file: ${resolvedPath}`);
+        }
+
+        const content = fs.readFileSync(resolvedPath, 'utf8');
+
+        // Determine MIME type based on file extension
+        const ext = path.extname(fileName).toLowerCase();
+        const mimeType = ext === '.md' ? 'text/markdown' : 'text/yaml';
+
+        console.error(`Debug: Successfully read file, content length: ${content.length}`);
+
+        return {
+          contents: [{
+            uri: request.params.uri,
+            mimeType: mimeType,
+            text: content
+          }]
+        };
+      } else {
+        throw new Error(`File does not exist: ${resolvedPath}`);
+      }
     }
+
+    throw new Error(`Unsupported protocol: ${url.protocol}`);
+  } catch (error) {
+    console.error(`Debug: Error reading resource:`, error);
+    throw error;
   }
-  
-  throw new Error(`Resource not found: ${request.params.uri}`);
+});
+
+// List resource templates
+server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
+  const templates = [];
+
+  // Convert default templates to MCP resource templates
+  for (const [name, template] of Object.entries(DEFAULT_TEMPLATES)) {
+    templates.push({
+      uri: `template://${name}`,
+      mimeType: "text/plain",
+      name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      description: `${template.category} template: ${template.structure.map(s => s.step).join(', ')}`
+    });
+  }
+
+  return { resourceTemplates: templates };
 });
 
 // Start server
 async function main() {
   const memoryServer = await MemoryPickleServer.create();
   const transport = new StdioServerTransport();
-  
+
   // Set the handler, passing the created memoryServer instance.
   server.setRequestHandler(CallToolRequestSchema, (req) => callToolHandler(req, memoryServer));
 

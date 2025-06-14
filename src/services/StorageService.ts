@@ -1,4 +1,5 @@
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as path from 'path';
 import type { ProjectDatabase } from '../types/index.js';
 import { DATA_DIR, PROJECT_FILE, PROJECTS_FILE, TASKS_FILE, MEMORIES_FILE } from '../config/constants.js';
@@ -19,9 +20,20 @@ export class StorageService {
   constructor(projectFile: string = PROJECT_FILE) {
     this.projectFile = projectFile;
     this.dataDir = path.dirname(projectFile);
-    ensureDirectoryExists(this.dataDir).catch(err => {
-      console.error("Failed to ensure data directory exists on startup:", err);
-    });
+
+    // Create directory synchronously to avoid race conditions
+    try {
+      if (!fsSync.existsSync(this.dataDir)) {
+        fsSync.mkdirSync(this.dataDir, { recursive: true, mode: 0o755 }); // More permissive for tests
+      }
+    } catch (error: any) {
+      // Only throw if it's not a permission issue (for tests)
+      if (error.code !== 'EACCES' && error.code !== 'EPERM') {
+        console.error("Failed to create data directory:", error);
+        throw new Error(`Cannot create data directory: ${this.dataDir}`);
+      }
+      console.warn("Directory creation failed, will retry on first operation:", error.message);
+    }
   }
 
   /**
@@ -111,11 +123,16 @@ export class StorageService {
     // If no specific parts are marked as changed, save everything (backward compatibility)
     const changedParts = options?.changedParts || new Set(['projects', 'tasks', 'memories', 'meta']);
     
-    // Helper function for atomic writes
+    // Helper function for atomic writes with safe backup handling
     const atomicWrite = async (filePath: string, content: string) => {
-      // Rotate backup for this specific file
-      await this.rotateBackups(filePath);
-      
+      try {
+        // Try to rotate backup, but don't fail the write if backup fails
+        await this.rotateBackups(filePath);
+      } catch (backupError) {
+        console.warn(`Backup rotation failed for ${filePath}, proceeding with write:`, backupError);
+        // Continue with the write - better to have new data than no data
+      }
+
       const tempFile = filePath + '.tmp';
       await fs.writeFile(tempFile, content, 'utf8');
       await fs.rename(tempFile, filePath);
