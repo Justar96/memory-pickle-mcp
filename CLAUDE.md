@@ -6,10 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `npm run build` - Compile TypeScript to JavaScript (required before running)
 - `npm run watch` - Watch TypeScript files and recompile on changes
-- `npm test` - Run Jest tests with ESM support
+- `npm test` - Run Jest tests with ESM support and 30s timeout
 - `npm run inspector` - Test server with MCP inspector tool
 - `node build/index.js` - Run the MCP server directly
 - `MEMORY_PICKLE_NO_EMOJIS=true node build/index.js` - Run in clean text mode
+
+### Testing Commands
+- `npm test -- --coverage` - Run tests with coverage report
+- `npm test -- --watch` - Run tests in watch mode
+- `npm test -- test/specific.test.ts` - Run specific test file
 
 ## Project Architecture
 
@@ -23,7 +28,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - `ProjectService` - Project lifecycle and completion tracking
    - `TaskService` - Task CRUD, hierarchy, and progress calculation
    - `MemoryService` - Memory storage and handoff generation
-3. **Tool Layer** (`src/tools/`) - MCP tool definitions organized by category (13 tools total)
+   - `IntelligentTaskService` - AI-powered task analysis and optimization
+3. **Tool Layer** (`src/tools/`) - MCP tool definitions organized by category (17 tools total including 4 intelligent features)
 4. **Data Layer** - Split-file YAML database stored in `.memory-pickle/` directory
 
 ### Key Design Patterns
@@ -49,10 +55,20 @@ The system uses a split-file approach with these files in `.memory-pickle/`:
 - The server maintains an in-memory task index that must be rebuilt after database commits
 - Tool method names must match exactly with the tool name for dynamic dispatch to work
 - Emoji output is configurable via `MEMORY_PICKLE_NO_EMOJIS` environment variable
+- Jest tests use ESM modules with ts-jest preset and 30-second timeout
+- TypeScript is configured for Node16 module resolution with strict mode enabled
 
 ### MCP Integration
 
-The server exposes 13 tools across 4 categories and automatically loads project status at session start. Tools are dynamically dispatched to methods on the main server class, so method names must match tool names exactly.
+The server exposes 17 tools across 5 categories (including intelligent features) and automatically loads project status at session start. Tools are dynamically dispatched to methods on the main server class, so method names must match tool names exactly.
+
+**New v1.2.0 Intelligent Features:**
+- `analyze_task` - AI-powered task complexity analysis and breakdown suggestions
+- `suggest_subtasks` - Intelligent subtask generation with auto-creation option
+- `detect_blockers` - Proactive blocker identification and risk assessment
+- `optimize_workflow` - Smart task ordering and workflow optimization
+
+These intelligent tools use pattern matching, keyword analysis, and dependency detection to provide AI-enhanced project management capabilities.
 
 ### Multi-Platform Support
 
