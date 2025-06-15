@@ -113,7 +113,7 @@ export class MemoryService {
 ${memory.content}`;
     }).join('\n\n---\n\n');
 
-    return `🧠 Found ${memories.length} relevant memories:\n\n${formattedResults}`;
+    return `[FOUND] Found ${memories.length} relevant memories:\n\n${formattedResults}`;
   }
 
   /**
@@ -182,13 +182,13 @@ ${memory.content}`;
    * Formats handoff summary for display
    */
   formatHandoffSummary(handoff: HandoffSummary, format: 'detailed' | 'compact' = 'detailed'): string {
-    let result = `# 🤝 Project Handoff Summary\n\n`;
+    let result = `# [HANDOFF] Project Handoff Summary\n\n`;
     result += `**Project:** ${handoff.project_name}\n`;
     result += `**Completion:** ${handoff.completion_percentage}%\n`;
     result += `**Session Date:** ${new Date(handoff.last_session_date).toLocaleString()}\n\n`;
 
     if (format === 'detailed') {
-      result += `## ✅ Completed This Session\n`;
+      result += `## [DONE] Completed This Session\n`;
       if (handoff.completed_in_last_session.length > 0) {
         handoff.completed_in_last_session.forEach(item => {
           result += `- ${item}\n`;
@@ -197,7 +197,7 @@ ${memory.content}`;
         result += `- No tasks completed this session\n`;
       }
 
-      result += `\n## 🔄 In Progress\n`;
+      result += `\n## [ACTIVE] In Progress\n`;
       if (handoff.in_progress.length > 0) {
         handoff.in_progress.forEach(item => {
           result += `- ${item}\n`;
@@ -207,13 +207,13 @@ ${memory.content}`;
       }
 
       if (handoff.blocked_items.length > 0) {
-        result += `\n## 🚨 Blocked Items\n`;
+        result += `\n## [BLOCKED] Blocked Items\n`;
         handoff.blocked_items.forEach(item => {
           result += `- ${item}\n`;
         });
       }
 
-      result += `\n## 🎯 Next Priorities\n`;
+      result += `\n## [NEXT] Next Priorities\n`;
       if (handoff.next_priorities.length > 0) {
         handoff.next_priorities.forEach(item => {
           result += `- ${item}\n`;

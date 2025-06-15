@@ -41,12 +41,12 @@ function setupToolHandlers(server: Server, core: MemoryPickleCore): void {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
-    // Simplified whitelist of core methods (9 tools including handoff alias)
+    // Simplified whitelist of core methods (8 tools)
     const allowedMethods = [
       'get_project_status', 'create_project', 'set_current_project',
       'create_task', 'update_task',
       'remember_this', 'recall_context',
-      'generate_handoff_summary', 'handoff'
+      'generate_handoff_summary'
     ];
 
     if (!allowedMethods.includes(name)) {

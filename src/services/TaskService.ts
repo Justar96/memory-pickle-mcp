@@ -268,7 +268,7 @@ export class TaskService {
     let result = `${indentStr}${checkbox} ${task.title}${progress} [${task.priority}]\n`;
     
     if (task.blockers && task.blockers.length > 0) {
-      result += `${indentStr}  🚨 Blocked: ${task.blockers.join(', ')}\n`;
+      result += `${indentStr}  [BLOCKED] ${task.blockers.join(', ')}\n`;
     }
 
     if (task.subtasks && task.subtasks.length > 0) {
@@ -293,7 +293,7 @@ export class TaskService {
       result += `   Priority: ${task.priority} | Progress: ${task.progress || 0}%\n`;
       if (task.description) result += `   ${task.description}\n`;
       if (task.blockers && task.blockers.length > 0) {
-        result += `   🚨 Blocked: ${task.blockers.join(', ')}\n`;
+        result += `   [BLOCKED] ${task.blockers.join(', ')}\n`;
       }
       result += '\n';
     });
@@ -318,7 +318,7 @@ export class TaskService {
     }
     
     if (task.blockers && task.blockers.length > 0) {
-      result += `${indentStr}  > 🚨 Blocked: ${task.blockers.join(', ')}\n`;
+      result += `${indentStr}  > [BLOCKED] ${task.blockers.join(', ')}\n`;
     }
 
     if (task.subtasks && task.subtasks.length > 0) {

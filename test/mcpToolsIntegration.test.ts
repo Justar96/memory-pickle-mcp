@@ -134,7 +134,7 @@ describe('MCP Tools Integration - Real Testing', () => {
       const validation = MCPToolTestUtils.validateMCPResponse(response, 'generate_handoff_summary');
       expect(validation.isValid).toBe(true);
       
-      expect(response.content[0].text).toContain('Handoff Summary');
+      expect(response.content[0].text).toContain('[HANDOFF] Session Summary');
       expect(response.content[0].text).toContain(testData.projects[0].name);
     });
   });
@@ -193,7 +193,7 @@ describe('MCP Tools Integration - Real Testing', () => {
 
       // 5. Generate handoff summary
       const summaryResponse = await MCPToolTestUtils.callMCPTool(core, 'generate_handoff_summary');
-      expect(summaryResponse.content[0].text).toContain('Handoff Summary');
+      expect(summaryResponse.content[0].text).toContain('[HANDOFF] Session Summary');
     });
   });
 });

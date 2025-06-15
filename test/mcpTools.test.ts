@@ -25,7 +25,7 @@ describe('MCP Tools Integration', () => {
     await fs.mkdir(testDataDir, { recursive: true });
     
     // Initialize services
-    storageService = new StorageService(testProjectFile);
+    storageService = new StorageService();
     taskService = new TaskService();
     projectService = new ProjectService();
     memoryService = new MemoryService();
@@ -126,7 +126,7 @@ describe('MCP Tools Integration', () => {
       const summaryResponse = await core.generate_handoff_summary({ project_id: project.id });
 
       expect(summaryResponse.content).toBeDefined();
-      expect(summaryResponse.content[0].text).toContain('Handoff Summary');
+      expect(summaryResponse.content[0].text).toContain('[HANDOFF] Session Summary');
       expect(summaryResponse.content[0].text).toContain(project.name);
     });
   });

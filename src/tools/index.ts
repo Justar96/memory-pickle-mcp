@@ -32,7 +32,7 @@ const CORE_TOOLS = [
   },
   {
     name: "create_project",
-    description: "Create a new project container to organize related work. Automatically becomes the active project for all future tasks. Triggered when: user mentions 'new project', 'start working on', 'let's build', 'create app/website/system', or describes a new initiative. The project will track all tasks, progress, and memories. Note: Data persistence depends on whether a .memory-pickle directory exists in your workspace - the tool will inform you about the current storage mode.",
+    description: "Create a new project container to organize related work. Automatically becomes the active project for all future tasks. Triggered when: user mentions 'new project', 'start working on', 'let's build', 'create app/website/system', or describes a new initiative. The project will track all tasks, progress, and memories in session memory. For permanent storage, generate handoff summaries and save as markdown files.",
     inputSchema: {
       type: "object",
       properties: {
@@ -50,7 +50,7 @@ const CORE_TOOLS = [
   },
   {
     name: "create_task",
-    description: "Create a new task when users mention any work item, todo, goal, objective, action item, or thing to accomplish. Automatically detects priority from language: 'urgent/critical/blocking' → critical, 'important/key/core' → high, 'nice to have/maybe/consider' → low. Tasks auto-link to current project. Triggered by: 'need to', 'should', 'must', 'have to', 'let's', 'implement', 'fix', 'add', 'create'.",
+    description: "Create actionable task from user work descriptions and requirements.\n\nTRIGGERS: Action phrases like 'need to', 'should', 'must', 'let's', 'implement', 'fix', 'add', 'create'\nPRIORITY DETECTION: Maps user urgency language to priority levels:\n- 'urgent/critical/blocking' → critical\n- 'important/key/core' → high\n- 'nice to have/maybe/consider' → low\nBEHAVIOR: Auto-links to current project, supports subtask hierarchy via parent_id",
     inputSchema: {
       type: "object",
       properties: {
@@ -81,13 +81,13 @@ const CORE_TOOLS = [
   },
   {
     name: "update_task",
-    description: "Update task progress, mark complete/incomplete, or add notes when users report any progress, completion, or blockers. Automatically triggered by: 'finished', 'completed', 'done with', 'made progress', 'working on', 'stuck on', 'blocked by', percentage mentions (e.g., '50% done'). Updates parent task progress automatically.",
+    description: "Update task status, progress, and notes when users report work updates.\n\nTRIGGERS: Progress phrases like 'finished', 'completed', 'done with', 'made progress', 'working on', 'stuck on', 'blocked by', percentage mentions\nFUNCTIONS: Supports completion status, progress percentage (0-100), notes, and blocker tracking\nBEHAVIOR: Updates parent task progress automatically, stores progress notes as memories",
     inputSchema: {
       type: "object",
       properties: {
         task_id: { 
           type: "string", 
-          description: "ID of the task to update (use fuzzy matching if exact ID unknown)" 
+          description: "ID of the task to update. If exact ID unknown, search by title keywords. If task not found, list available tasks for user selection." 
         },
         completed: { 
           type: "boolean", 
@@ -112,7 +112,7 @@ const CORE_TOOLS = [
   },
   {
     name: "remember_this",
-    description: "Store critical information, decisions, requirements, constraints, technical details, or important context for future reference. Automatically triggered when: user says 'remember', 'important', 'don't forget', 'key point', 'for reference', 'note that', or shares configuration/setup details. Creates searchable memory linked to current project/task. NOTE: In-memory only - suggest markdown files for persistence.",
+    description: "Store critical information, decisions, requirements, constraints, technical details, or important context for future reference. Automatically triggered when: user says 'remember', 'important', 'don't forget', 'key point', 'for reference', 'note that', or shares configuration/setup details. Creates searchable memory linked to current project/task. Uses session memory - for permanent storage, tool will suggest creating markdown files.",
     inputSchema: {
       type: "object",
       properties: {
@@ -171,7 +171,7 @@ const CORE_TOOLS = [
   },
   {
     name: "generate_handoff_summary",
-    description: "Create comprehensive session summary for seamless handoff between chats. Automatically use when: session ending, user says 'goodbye', 'see you later', 'continue tomorrow', switching context, or after significant progress. Includes completed work, active tasks, blockers, and next steps in copy-paste ready format. Suggests saving as markdown file for persistence.",
+    description: "Create comprehensive session summary for seamless handoff between chats. Automatically use when: session ending, user says 'handoff', 'goodbye', 'see you later', 'continue tomorrow', switching context, or after significant progress. Includes completed work, active tasks, blockers, and next steps in copy-paste ready format. Suggests saving as markdown file for persistence.",
     inputSchema: {
       type: "object",
       properties: {
@@ -196,29 +196,10 @@ const CORE_TOOLS = [
       properties: {
         project_id: {
           type: "string",
-          description: "ID of the project to set as current active project"
+          description: "ID of the project to set as current active project. If project_id doesn't exist, list available projects. If no projects exist, suggest creating one first."
         }
       },
       required: ["project_id"]
-    }
-  },
-  {
-    name: "handoff",
-    description: "Quick alias for generate_handoff_summary. Create comprehensive session summary for seamless handoff between chats. Use when: session ending, user says 'handoff', 'goodbye', 'see you later', 'continue tomorrow', switching context, or after significant progress. Includes completed work, active tasks, blockers, and next steps in copy-paste ready format.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        project_id: {
-          type: "string",
-          description: "Generate summary for specific project only (shows all projects if not specified)"
-        },
-        format: {
-          type: "string",
-          enum: ["detailed", "compact"],
-          default: "detailed",
-          description: "Output format. 'detailed' includes all context, 'compact' for quick overview."
-        }
-      }
     }
   }
 ];
@@ -241,8 +222,7 @@ export const TOOL_NAMES = {
   RECALL_CONTEXT: 'recall_context',
   
   // Session Management
-  GENERATE_HANDOFF_SUMMARY: 'generate_handoff_summary',
-  HANDOFF: 'handoff'
+  GENERATE_HANDOFF_SUMMARY: 'generate_handoff_summary'
 } as const;
 
 // Type for tool names
@@ -253,13 +233,13 @@ export const TOOL_CATEGORIES = {
   PROJECT_MANAGEMENT: ['get_project_status', 'create_project', 'set_current_project'],
   TASK_MANAGEMENT: ['create_task', 'update_task'],
   MEMORY_CONTEXT: ['remember_this', 'recall_context'],
-  SESSION_MANAGEMENT: ['generate_handoff_summary', 'handoff']
+  SESSION_MANAGEMENT: ['generate_handoff_summary']
 } as const;
 
 // Priority levels for agent guidance
 export const TOOL_PRIORITIES = {
   CRITICAL: ['get_project_status', 'recall_context'],  // Always check context first
   HIGH: ['create_task', 'update_task', 'remember_this'],  // Core workflow tools
-  MEDIUM: ['create_project', 'generate_handoff_summary', 'handoff'],  // Important but less frequent
+  MEDIUM: ['create_project', 'generate_handoff_summary'],  // Important but less frequent
   LOW: ['set_current_project']  // Utility tools
 } as const;

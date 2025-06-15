@@ -1,6 +1,6 @@
 # Memory Pickle MCP
 
-Project management and session memory for AI agents. Provides 9 MCP tools for tracking projects, tasks, and context during chat sessions.
+Project management and session memory for AI agents. Provides 8 essential MCP tools for tracking projects, tasks, and context during chat sessions.
 
 ## Quick Start
 
@@ -20,6 +20,7 @@ Project management and session memory for AI agents. Provides 9 MCP tools for tr
 - **Website:** [pickle.cabbages.work](https://pickle.cabbages.work)
 - **GitHub:** [Justar96/memory-pickle-mcp](https://github.com/Justar96/memory-pickle-mcp)
 - **NPM:** [@cabbages/memory-pickle-mcp](https://www.npmjs.com/package/@cabbages/memory-pickle-mcp)
+- **Pre-release version**[@cabbages-pre/memory-pickle-mcp-pre](https://www.npmjs.com/package/@cabbages-pre/memory-pickle-mcp-pre)
 
 ## How Memory Works
 
@@ -50,8 +51,7 @@ Project management and session memory for AI agents. Provides 9 MCP tools for tr
 - `recall_context` - Search stored memories
 
 **Session Management**
-- `generate_handoff_summary` - Create transition summary
-- `handoff` - Quick alias for generate_handoff_summary
+- `generate_handoff_summary` - Create transition summary (responds to 'handoff' trigger)
 
 ## Storage Details
 

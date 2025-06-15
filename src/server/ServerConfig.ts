@@ -6,7 +6,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
  */
 export const SERVER_CONFIG = {
   name: "memory-pickle-mcp",
-  version: "1.2.0",
+  version: "1.3.1",
 } as const;
 
 /**
@@ -38,5 +38,5 @@ export function createTransport(): StdioServerTransport {
  */
 export async function startServer(server: Server, transport: StdioServerTransport): Promise<void> {
   await server.connect(transport);
-  console.error(`Memory Pickle MCP server v${SERVER_CONFIG.version} running - Intelligent Project Management Mode`);
+  console.error(`Memory Pickle MCP server v${SERVER_CONFIG.version} running - Simplified Project Management Mode`);
 }

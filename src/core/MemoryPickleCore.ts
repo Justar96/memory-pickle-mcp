@@ -208,7 +208,7 @@ export class MemoryPickleCore {
         : 0;
 
       const isCurrentProject = this.database.meta?.current_project_id === project.id;
-      const currentMarker = isCurrentProject ? ' 👈 **CURRENT**' : '';
+      const currentMarker = isCurrentProject ? ' [CURRENT]' : '';
 
       statusText += `**${project.name}**${currentMarker}\n`;
       statusText += `- Status: ${project.status}\n`;
@@ -551,7 +551,7 @@ export class MemoryPickleCore {
       projects = [project];
     }
 
-    let summary = `# 📋 Handoff Summary\n\n`;
+    let summary = `# [HANDOFF] Session Summary\n\n`;
     summary += `**Generated:** ${new Date().toLocaleString()}\n`;
     summary += `**Session Duration:** ${Math.round((Date.now() - this.sessionStartTime.getTime()) / 1000 / 60)} minutes\n\n`;
 
@@ -560,13 +560,13 @@ export class MemoryPickleCore {
       const completedTasks = projectTasks.filter(task => task.completed);
       const activeTasks = projectTasks.filter(task => !task.completed);
 
-      summary += `## 🎯 ${project.name}\n\n`;
+      summary += `## [PROJECT] ${project.name}\n\n`;
       summary += `**Status:** ${project.status}\n`;
       summary += `**Progress:** ${project.completion_percentage}%\n`;
       summary += `**Tasks:** ${completedTasks.length}/${projectTasks.length} completed\n\n`;
 
       if (activeTasks.length > 0) {
-        summary += `### 🔄 Active Tasks\n`;
+        summary += `### [ACTIVE] Active Tasks\n`;
         activeTasks.forEach(task => {
           summary += `- **${task.title}** (${task.priority} priority)\n`;
         });
@@ -574,7 +574,7 @@ export class MemoryPickleCore {
       }
 
       if (completedTasks.length > 0) {
-        summary += `### ✅ Recently Completed\n`;
+        summary += `### [DONE] Recently Completed\n`;
         completedTasks.slice(-3).forEach(task => {
           summary += `- **${task.title}**\n`;
         });
@@ -588,7 +588,7 @@ export class MemoryPickleCore {
         .slice(0, 3);
 
       if (recentMemories.length > 0) {
-        summary += `### 💭 Recent Notes\n`;
+        summary += `### [NOTES] Recent Notes\n`;
         recentMemories.forEach(memory => {
           summary += `- **${memory.title}:** ${memory.content.substring(0, 100)}${memory.content.length > 100 ? '...' : ''}\n`;
         });
@@ -600,7 +600,7 @@ export class MemoryPickleCore {
 
     // Add markdown file suggestion
     const dateStr = new Date().toISOString().split('T')[0];
-    const markdownSuggestion = `\n\n💡 **Suggestion:** Save this summary as a markdown file for future reference:\n\`session-summary-${dateStr}.md\`\n\nThis will help you pick up where you left off in future sessions.`;
+    const markdownSuggestion = `\n\n[SUGGESTION] Save this summary as a markdown file for future reference:\n\`session-summary-${dateStr}.md\`\n\nThis will help you pick up where you left off in future sessions.`;
 
     return {
       content: [{
@@ -610,12 +610,6 @@ export class MemoryPickleCore {
     };
   }
 
-  /**
-   * Alias for generate_handoff_summary - shorter and more intuitive
-   */
-  async handoff(args: any = {}): Promise<any> {
-    return this.generate_handoff_summary(args);
-  }
 
   async set_current_project(args: any): Promise<any> {
     const { project_id } = args;

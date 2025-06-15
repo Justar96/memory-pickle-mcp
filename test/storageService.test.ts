@@ -11,7 +11,7 @@ describe('StorageService Concurrency and Locking', () => {
   beforeEach(async () => {
     await fs.rm(testDataDir, { recursive: true, force: true });
     await fs.mkdir(testDataDir, { recursive: true });
-    storageService = new StorageService(testProjectFile);
+    storageService = new StorageService();
   });
 
   afterEach(async () => {
@@ -66,7 +66,7 @@ describe('StorageService Concurrency and Locking', () => {
     };
     await fs.writeFile(lockFile, JSON.stringify(lockInfo, null, 2));
 
-    const storage = new StorageService(testProjectFile);
+    const storage = new StorageService();
 
     // Should succeed because the lock will be detected as stale and removed
     let operationExecuted = false;

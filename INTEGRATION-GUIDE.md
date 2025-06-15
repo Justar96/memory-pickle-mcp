@@ -2,7 +2,7 @@
 
 This guide explains how to integrate Memory Pickle MCP with different AI agent IDEs and platforms.
 
-## 🎯 Universal MCP Configuration
+## Universal MCP Configuration
 
 Memory Pickle MCP works with any MCP-compatible client. The server provides 8 essential tools for streamlined project management and memory.
 
@@ -22,7 +22,7 @@ Memory Pickle MCP works with any MCP-compatible client. The server provides 8 es
 }
 ```
 
-## 🖥️ Platform-Specific Integration
+## Platform-Specific Integration
 
 ### Claude Desktop
 **Location**: `~/.claude_desktop_config.json` (Mac) or `%APPDATA%\Claude\config.json` (Windows)
@@ -116,7 +116,7 @@ For easier deployment across different environments:
 }
 ```
 
-## 🔧 Configuration Options
+## Configuration Options
 
 ### Environment Variables
 - `NODE_ENV`: Set to "production" for optimized performance
@@ -155,7 +155,7 @@ Memory Pickle uses clean text output for universal compatibility:
 - Clean logs and automation output
 - No font dependencies
 
-## 🛠️ Available Tools (8 Essential Tools)
+## Available Tools (8 Essential Tools)
 
 ### Core Tools
 1. **`get_project_status`** - Show current project status and tasks (auto-loads at session start)
@@ -173,7 +173,7 @@ Memory Pickle uses clean text output for universal compatibility:
 - **Agent-friendly** - Clear, focused functionality
 - **Essential only** - Removed rarely-used utilities and diagnostics
 
-## 📁 Data Storage
+## Data Storage
 
 Memory Pickle stores data in `.memory-pickle/` directory:
 - `projects.yaml` - Project data and metadata
@@ -181,7 +181,7 @@ Memory Pickle stores data in `.memory-pickle/` directory:
 - `memories.yaml` - Persistent memories
 - `meta.yaml` - Session tracking and settings
 
-## 🔍 Testing Your Integration
+## Testing Your Integration
 
 1. **Verify Server**: `node build/index.js` should output "Memory Pickle MCP server v1.3.0 running"
 2. **Test with Inspector**: `npm run inspector` opens web interface at http://localhost:6274
@@ -191,7 +191,7 @@ Memory Pickle stores data in `.memory-pickle/` directory:
    create_project → create_task → get_project_status → update_task
    ```
 
-## 🚨 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 - **"Unknown tool" errors**: Ensure you're using snake_case tool names (e.g., `create_project` not `createProject`)

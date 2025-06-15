@@ -22,7 +22,7 @@ describe('End-to-End MCP Workflows', () => {
     await fs.rm(testDataDir, { recursive: true, force: true });
     await fs.mkdir(testDataDir, { recursive: true });
     
-    storageService = new StorageService(testProjectFile);
+    storageService = new StorageService();
     taskService = new TaskService();
     projectService = new ProjectService();
     memoryService = new MemoryService();
@@ -165,7 +165,7 @@ describe('End-to-End MCP Workflows', () => {
       const summaryText = summaryResponse.content[0].text;
       expect(summaryText).toContain('Mobile App');
       expect(summaryText).toContain('Design UI mockups');
-      expect(summaryText).toContain('Handoff Summary');
+      expect(summaryText).toContain('[HANDOFF] Session Summary');
 
       // Verify summary is copy-paste ready
       expect(summaryText.length).toBeGreaterThan(100);
@@ -284,7 +284,7 @@ describe('End-to-End MCP Workflows', () => {
     it('should handle missing files gracefully', async () => {
       // Try to load from non-existent location
       const nonExistentPath = path.join(testDataDir, 'non-existent.yaml');
-      const emptyStorageService = new StorageService(nonExistentPath);
+      const emptyStorageService = new StorageService();
       
       const db = await emptyStorageService.loadDatabase();
       
