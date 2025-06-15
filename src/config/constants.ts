@@ -81,7 +81,7 @@ function getDataDirectory(): string {
   // No existing directory found - return the preferred path without creating it
   // User will need to create .memory-pickle folder manually to enable persistence
   const preferredDir = possibleDirs[0] || path.join(process.cwd(), '.memory-pickle');
-  console.error(`Memory Pickle: Will use ${preferredDir} when created (currently in memory-only mode)`);
+  // Note: Removed console.error to prevent interference with MCP stdio communication
   return preferredDir;
 }
 
@@ -166,7 +166,7 @@ export function getConfigFile(): string {
 // Server configuration
 export const SERVER_CONFIG = {
   name: "memory-pickle",
-  version: "1.3.1",
+  version: "1.3.6",
 } as const;
 
 // UI configuration - Clean text mode only

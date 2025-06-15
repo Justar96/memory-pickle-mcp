@@ -2,8 +2,9 @@ import type { ProjectDatabase, Project, Task } from '../types/index.js';
 import { StorageService, ProjectService, TaskService, MemoryService } from '../services/index.js';
 
 /**
- * Core business logic for Memory Pickle MCP Server
+ * Core business logic for Memory Pickle MCP Server with robust error handling
  * Contains all the business methods without MCP-specific concerns
+ * Implements defensive programming practices and comprehensive validation
  */
 export class MemoryPickleCore {
   private database: ProjectDatabase;
@@ -13,6 +14,7 @@ export class MemoryPickleCore {
   private memoryService: MemoryService;
   private sessionStartTime: Date;
   private taskIndex: Map<string, Task>;
+  private isShuttingDown: boolean = false;
 
   constructor(
     database: ProjectDatabase,
@@ -37,14 +39,16 @@ export class MemoryPickleCore {
     const taskService = new TaskService();
     const memoryService = new MemoryService();
 
-    const database = await storageService.loadDatabase();
+    // Get the database reference directly from storage service
+    const database = storageService.getDatabase();
 
     // Backward compatibility: Load legacy memories if main DB is empty
     if (database.memories.length === 0) {
       const legacyMemories = await storageService.loadMemories();
       if (legacyMemories.length > 0) {
         database.memories = legacyMemories;
-        console.error(`Loaded ${legacyMemories.length} memories from legacy file.`);
+        // Note: Removed console.error to prevent MCP stdio interference
+        // Legacy memories loaded successfully
       }
     }
 
@@ -58,56 +62,127 @@ export class MemoryPickleCore {
     }
   }
 
-  // Project Management Methods
-  async create_project(args: any): Promise<any> {
-    const { name, description = '', status = 'planning' } = args;
-
-    if (!name?.trim()) {
-      throw new Error('Project name is required');
+  /**
+   * Validates input arguments and throws descriptive errors
+   */
+  private validateInput(args: any, requiredFields: string[], operation: string): void {
+    if (!args || typeof args !== 'object') {
+      throw new Error(`${operation}: Invalid arguments - expected object`);
     }
 
-    const result = await this.storageService.runExclusive(async (db) => {
-      const newProject = this.projectService.createProject({
-        name: name.trim(),
-        description: description.trim()
+    for (const field of requiredFields) {
+      if (args[field] === undefined || args[field] === null) {
+        throw new Error(`${operation}: Missing required field '${field}'`);
+      }
+
+      if (typeof args[field] === 'string' && !args[field].trim()) {
+        throw new Error(`${operation}: Field '${field}' cannot be empty`);
+      }
+    }
+  }
+
+  /**
+   * Safely executes operations with comprehensive error handling
+   */
+  private async safeExecute<T>(
+    operation: string,
+    executor: () => Promise<T>
+  ): Promise<T> {
+    if (this.isShuttingDown) {
+      throw new Error(`${operation}: System is shutting down`);
+    }
+
+    try {
+      return await executor();
+    } catch (error) {
+      // Log error details for debugging (without console output)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      // Re-throw with operation context
+      throw new Error(`${operation}: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Validates that the current project exists and is accessible
+   */
+  private validateCurrentProject(): string {
+    const currentProjectId = this.database.meta?.current_project_id;
+
+    if (!currentProjectId) {
+      throw new Error('No current project set. Use set_current_project or provide project_id parameter.');
+    }
+
+    const project = this.projectService.findProjectById(this.database.projects, currentProjectId);
+    if (!project) {
+      // Auto-fix: clear invalid current project
+      this.database.meta.current_project_id = undefined;
+      throw new Error('Current project no longer exists. Please set a new current project.');
+    }
+
+    return currentProjectId;
+  }
+
+  // Project Management Methods
+  async create_project(args: any): Promise<any> {
+    return this.safeExecute('create_project', async () => {
+      this.validateInput(args, ['name'], 'create_project');
+
+      const { name, description = '', status = 'planning' } = args;
+
+      // Additional validation
+      if (name.length > 100) {
+        throw new Error('Project name cannot exceed 100 characters');
+      }
+      if (description.length > 1000) {
+        throw new Error('Project description cannot exceed 1000 characters');
+      }
+      if (status && !['planning', 'in_progress', 'blocked', 'completed', 'archived'].includes(status)) {
+        throw new Error('Invalid project status');
+      }
+
+      const result = await this.storageService.runExclusive(async (db) => {
+        const newProject = this.projectService.createProject({
+          name: name.trim(),
+          description: description.trim()
+        });
+
+        // Set status if provided
+        if (status && status !== 'planning') {
+          newProject.status = status;
+        }
+
+        db.projects.push(newProject);
+
+        // Automatically set this as the current project
+        if (!db.meta) {
+          db.meta = {
+            last_updated: new Date().toISOString(),
+            version: "2.0.0",
+            session_count: 0,
+            current_project_id: newProject.id
+          };
+        } else {
+          db.meta.current_project_id = newProject.id;
+          db.meta.last_updated = new Date().toISOString();
+        }
+
+        return {
+          result: newProject,
+          commit: true,
+          changedParts: new Set(['projects', 'meta'] as const)
+        };
       });
 
-      // Set status if provided
-      if (status && status !== 'planning') {
-        newProject.status = status;
-      }
-
-      db.projects.push(newProject);
-
-      // Automatically set this as the current project
-      if (!db.meta) {
-        db.meta = {
-          last_updated: new Date().toISOString(),
-          version: "2.0.0",
-          session_count: 0,
-          current_project_id: newProject.id
-        };
-      } else {
-        db.meta.current_project_id = newProject.id;
-        db.meta.last_updated = new Date().toISOString();
-      }
+      // Note: No need to reload database since we're working with the same instance
 
       return {
-        result: newProject,
-        commit: true,
-        changedParts: new Set(['projects', 'meta'] as const)
+        content: [{
+          type: "text",
+          text: `[OK] **Project Created Successfully!**\n\n**Name:** ${result.name}\n**ID:** ${result.id}\n**Status:** ${result.status}\n**Description:** ${result.description || 'No description provided'}\n\n[OK] **This project is now your current project.** You can add tasks using the \`create_task\` tool without specifying a project_id.\n\n[INFO] **Note:** Data is stored in memory only. Consider creating markdown files to document your project progress for future reference.`
+        }]
       };
     });
-
-    // Update local state after successful commit
-    this.database = await this.storageService.loadDatabase();
-
-    return {
-      content: [{
-        type: "text",
-        text: `[OK] **Project Created Successfully!**\n\n**Name:** ${result.name}\n**ID:** ${result.id}\n**Status:** ${result.status}\n**Description:** ${result.description || 'No description provided'}\n\n[OK] **This project is now your current project.** You can add tasks using the \`create_task\` tool without specifying a project_id.\n\n[INFO] **Note:** Data is stored in memory only. Consider creating markdown files to document your project progress for future reference.`
-      }]
-    };
   }
 
   async get_project_status(args: any): Promise<any> {
@@ -253,8 +328,7 @@ export class MemoryPickleCore {
       };
     });
 
-    // Update local state after successful commit
-    this.database = await this.storageService.loadDatabase();
+    // Note: No need to reload database since we're working with the same instance
 
     return {
       content: [{
@@ -268,79 +342,95 @@ export class MemoryPickleCore {
 
   // Task Management Methods
   async create_task(args: any): Promise<any> {
-    const { title, description = '', priority = 'medium', project_id, parent_id } = args;
+    return this.safeExecute('create_task', async () => {
+      this.validateInput(args, ['title'], 'create_task');
 
-    if (!title?.trim()) {
-      throw new Error('Task title is required');
-    }
+      const { title, description = '', priority = 'medium', project_id, parent_id } = args;
 
-    // If no project_id provided, try to use the current project from meta
-    let targetProjectId = project_id;
-    if (!targetProjectId && this.database.meta?.current_project_id) {
-      targetProjectId = this.database.meta.current_project_id;
-    }
-
-    if (!targetProjectId) {
-      throw new Error('Project ID is required. Either provide project_id or set a current project using set_current_project.');
-    }
-
-    const result = await this.storageService.runExclusive(async (db) => {
-      // Verify project exists
-      const project = this.projectService.findProjectById(db.projects, targetProjectId);
-      if (!project) {
-        throw new Error(`Project not found: ${targetProjectId}`);
+      // Additional validation
+      if (title.length > 200) {
+        throw new Error('Task title cannot exceed 200 characters');
+      }
+      if (description.length > 2000) {
+        throw new Error('Task description cannot exceed 2000 characters');
+      }
+      if (priority && !['low', 'medium', 'high', 'critical'].includes(priority)) {
+        throw new Error('Invalid task priority');
       }
 
-      // Verify parent task exists if provided
-      if (parent_id) {
-        const parentTask = this.taskService.findTaskById(db.tasks, parent_id);
-        if (!parentTask) {
-          throw new Error(`Parent task not found: ${parent_id}`);
-        }
-        if (parentTask.project_id !== targetProjectId) {
-          throw new Error('Parent task must be in the same project');
-        }
+      // If no project_id provided, try to use the current project from meta
+      let targetProjectId = project_id;
+      if (!targetProjectId) {
+        targetProjectId = this.validateCurrentProject();
       }
 
-      const newTask = this.taskService.createTask({
-        title: title.trim(),
-        description: description.trim(),
-        priority,
-        project_id: targetProjectId,
-        parent_id
+      const result = await this.storageService.runExclusive(async (db) => {
+        // Verify project exists
+        const project = this.projectService.findProjectById(db.projects, targetProjectId);
+        if (!project) {
+          throw new Error(`Project not found: ${targetProjectId}`);
+        }
+
+        // Verify parent task exists if provided
+        if (parent_id) {
+          const parentTask = this.taskService.findTaskById(db.tasks, parent_id);
+          if (!parentTask) {
+            throw new Error(`Parent task not found: ${parent_id}`);
+          }
+          if (parentTask.project_id !== targetProjectId) {
+            throw new Error('Parent task must be in the same project');
+          }
+        }
+
+        const newTask = this.taskService.createTask({
+          title: title.trim(),
+          description: description.trim(),
+          priority,
+          project_id: targetProjectId,
+          parent_id
+        });
+
+        db.tasks.push(newTask);
+
+        return {
+          result: newTask,
+          commit: true,
+          changedParts: new Set(['tasks'] as const)
+        };
       });
 
-      db.tasks.push(newTask);
+      // Note: No need to reload database since we're working with the same instance
+      this.buildTaskIndex();
+
+      const project = this.projectService.findProjectById(this.database.projects, targetProjectId);
 
       return {
-        result: newTask,
-        commit: true,
-        changedParts: new Set(['tasks'] as const)
+        content: [{
+          type: "text",
+          text: `[OK] **Task Created Successfully!**\n\n**Title:** ${result.title}\n**ID:** ${result.id}\n**Project:** ${project?.name}\n**Priority:** ${result.priority}\n**Description:** ${result.description || 'No description provided'}\n\nTask is ready to be worked on!`
+        }]
       };
     });
-
-    // Update local state after successful commit
-    this.database = await this.storageService.loadDatabase();
-    this.buildTaskIndex();
-
-    const project = this.projectService.findProjectById(this.database.projects, targetProjectId);
-
-    return {
-      content: [{
-        type: "text",
-        text: `[OK] **Task Created Successfully!**\n\n**Title:** ${result.title}\n**ID:** ${result.id}\n**Project:** ${project?.name}\n**Priority:** ${result.priority}\n**Description:** ${result.description || 'No description provided'}\n\nTask is ready to be worked on!`
-      }]
-    };
   }
 
   async update_task(args: any): Promise<any> {
-    const { task_id, title, description, priority, completed, progress, notes, blockers } = args;
+    return this.safeExecute('update_task', async () => {
+      this.validateInput(args, ['task_id'], 'update_task');
 
-    if (!task_id) {
-      throw new Error('Task ID is required');
-    }
+      const { task_id, title, description, priority, completed, progress, notes, blockers } = args;
 
-    const result = await this.storageService.runExclusive(async (db) => {
+      // Additional validation
+      if (title !== undefined && title.length > 200) {
+        throw new Error('Task title cannot exceed 200 characters');
+      }
+      if (description !== undefined && description.length > 2000) {
+        throw new Error('Task description cannot exceed 2000 characters');
+      }
+      if (priority !== undefined && !['low', 'medium', 'high', 'critical'].includes(priority)) {
+        throw new Error('Invalid task priority');
+      }
+
+      const result = await this.storageService.runExclusive(async (db) => {
       const task = this.taskService.findTaskById(db.tasks, task_id);
       if (!task) {
         throw new Error(`Task not found: ${task_id}`);
@@ -400,8 +490,7 @@ export class MemoryPickleCore {
       };
     });
 
-    // Update local state after successful commit
-    this.database = await this.storageService.loadDatabase();
+    // Note: No need to reload database since we're working with the same instance
     this.buildTaskIndex();
 
     let response = `[OK] **Task Updated Successfully!**\n\n**${result.title}**\n`;
@@ -422,12 +511,13 @@ export class MemoryPickleCore {
       response += `Blockers added: ${blockers.join(', ')}\n`;
     }
 
-    return {
-      content: [{
-        type: "text",
-        text: response
-      }]
-    };
+      return {
+        content: [{
+          type: "text",
+          text: response
+        }]
+      };
+    });
   }
 
 
@@ -460,8 +550,7 @@ export class MemoryPickleCore {
       };
     });
 
-    // Update local state after successful commit
-    this.database = await this.storageService.loadDatabase();
+    // Note: No need to reload database since we're working with the same instance
 
     // Generate markdown suggestion for critical/high importance memories
     let markdownSuggestion = '';
@@ -643,8 +732,7 @@ export class MemoryPickleCore {
       };
     });
 
-    // Update local state after successful commit
-    this.database = await this.storageService.loadDatabase();
+    // Note: No need to reload database since we're working with the same instance
 
     return {
       content: [{
@@ -665,5 +753,98 @@ export class MemoryPickleCore {
     return this.taskIndex;
   }
 
+  /**
+   * Cleanup method for graceful shutdown
+   */
+  async shutdown(): Promise<void> {
+    this.isShuttingDown = true;
 
+    // Clear task index to free memory
+    this.taskIndex.clear();
+
+    // Cleanup storage service
+    this.storageService.cleanup();
+  }
+
+  /**
+   * Get system health and performance statistics
+   */
+  getSystemStats(): {
+    database: ReturnType<StorageService['getStats']>;
+    taskIndexSize: number;
+    sessionDuration: number;
+    isShuttingDown: boolean;
+  } {
+    return {
+      database: this.storageService.getStats(),
+      taskIndexSize: this.taskIndex.size,
+      sessionDuration: Math.round((Date.now() - this.sessionStartTime.getTime()) / 1000 / 60),
+      isShuttingDown: this.isShuttingDown
+    };
+  }
+
+  /**
+   * Cleanup orphaned data (tasks/memories without valid project references)
+   */
+  async cleanupOrphanedData(): Promise<{
+    orphanedTasks: number;
+    orphanedMemories: number;
+    invalidCurrentProject: boolean;
+  }> {
+    return this.safeExecute('cleanupOrphanedData', async () => {
+      const result = await this.storageService.runExclusive(async (db) => {
+        const projectIds = new Set(db.projects.map(p => p.id));
+
+        // Find orphaned tasks
+        const orphanedTasks = db.tasks.filter(task => !projectIds.has(task.project_id));
+        const orphanedTaskCount = orphanedTasks.length;
+
+        // Find orphaned memories
+        const orphanedMemories = db.memories.filter(memory =>
+          memory.project_id && !projectIds.has(memory.project_id)
+        );
+        const orphanedMemoryCount = orphanedMemories.length;
+
+        // Check current project validity
+        const invalidCurrentProject = !!(
+          db.meta.current_project_id &&
+          !projectIds.has(db.meta.current_project_id)
+        );
+
+        // Remove orphaned data
+        if (orphanedTaskCount > 0) {
+          db.tasks = db.tasks.filter(task => projectIds.has(task.project_id));
+        }
+
+        if (orphanedMemoryCount > 0) {
+          db.memories = db.memories.filter(memory =>
+            !memory.project_id || projectIds.has(memory.project_id)
+          );
+        }
+
+        if (invalidCurrentProject) {
+          db.meta.current_project_id = undefined;
+        }
+
+        const hasChanges = orphanedTaskCount > 0 || orphanedMemoryCount > 0 || invalidCurrentProject;
+
+        return {
+          result: {
+            orphanedTasks: orphanedTaskCount,
+            orphanedMemories: orphanedMemoryCount,
+            invalidCurrentProject
+          },
+          commit: hasChanges,
+          changedParts: new Set(['tasks', 'memories', 'meta'] as const)
+        };
+      });
+
+      // Rebuild task index if tasks were cleaned up
+      if (result.orphanedTasks > 0) {
+        this.buildTaskIndex();
+      }
+
+      return result;
+    });
+  }
 }

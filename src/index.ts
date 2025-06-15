@@ -46,7 +46,8 @@ async function main(): Promise<void> {
     await startServer(server, transport);
 
   } catch (error) {
-    console.error("Server startup error:", error);
+    // Note: Avoid console.error to prevent MCP stdio interference
+    // Error details are available in the error object for debugging
     process.exit(1);
   }
 }

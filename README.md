@@ -4,12 +4,38 @@ Project management and session memory for AI agents. Provides 8 essential MCP to
 
 ## Quick Start
 
+### Pre-release Version (Latest Development)
+```json
+{
+  "mcpServers": {
+    "memory-pickle-pre": {
+      "command": "npx",
+      "args": ["-y", "@cabbages-pre/memory-pickle-mcp-pre"]
+    }
+  }
+}
+```
+
+### Stable Version
 ```json
 {
   "mcpServers": {
     "memory-pickle": {
       "command": "npx",
       "args": ["-y", "@cabbages/memory-pickle-mcp"]
+    }
+  }
+}
+```
+
+### Local Development
+```json
+{
+  "mcpServers": {
+    "memory-pickle-dev": {
+      "command": "node",
+      "args": ["build/index.js"],
+      "cwd": "/path/to/your/memory-pickle-mcp"
     }
   }
 }
