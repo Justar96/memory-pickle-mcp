@@ -5,6 +5,19 @@ All notable changes to Memory Pickle MCP will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2025-06-15
+
+### Changed
+- **Default to clean text output**: System now defaults to professional, emoji-free output
+- **Reversed emoji configuration**: Use `MEMORY_PICKLE_USE_EMOJIS=true` to enable emojis (previously `MEMORY_PICKLE_NO_EMOJIS=true` to disable)
+- **Updated documentation**: All configuration examples reflect new clean text default
+
+### Benefits
+- **Professional by default**: Better for corporate and enterprise environments
+- **Universal compatibility**: Works perfectly in terminals, SSH, and restricted environments
+- **Improved accessibility**: Better screen reader support and cleaner logs
+- **Optional visual enhancement**: Emojis available when desired
+
 ## [1.3.0] - 2025-06-14
 
 ### 🎯 Major Simplification Release

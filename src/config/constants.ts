@@ -4,31 +4,31 @@ import * as fs from 'fs';
 
 // Data directory configuration with environment detection and fallbacks
 function getDataDirectory(): string {
-  // If workspace is explicitly set, use only that location
+  // If workspace is explicitly set, use ONLY that location (no fallbacks)
   if (process.env.MEMORY_PICKLE_WORKSPACE) {
     const workspaceDir = path.join(process.env.MEMORY_PICKLE_WORKSPACE, '.memory-pickle');
-    console.error(`Memory Pickle: Using explicit workspace: ${process.env.MEMORY_PICKLE_WORKSPACE}`);
-    
+    console.error(`Memory Pickle: Using explicit workspace: ${workspaceDir}`);
+
     if (fs.existsSync(workspaceDir)) {
       try {
         // Test write permissions
         const timestamp = Date.now();
         const randomSuffix = Math.random().toString(36).substring(2, 15);
         const testFile = path.join(workspaceDir, `.write-test-${timestamp}-${randomSuffix}`);
-        
+
         const fd = fs.openSync(testFile, 'wx', 0o600);
         fs.writeSync(fd, 'test');
         fs.closeSync(fd);
         fs.unlinkSync(testFile);
-        
+
         console.error(`Memory Pickle: Using existing workspace directory: ${workspaceDir}`);
         return workspaceDir;
       } catch (error) {
-        console.error(`Memory Pickle: Workspace directory exists but not writable, will use when created: ${workspaceDir}`);
+        console.error(`Memory Pickle: Workspace directory exists but not writable: ${workspaceDir}`);
         return workspaceDir;
       }
     } else {
-      console.error(`Memory Pickle: Will use workspace ${workspaceDir} when created (currently in memory-only mode)`);
+      console.error(`Memory Pickle: Workspace directory will be used when created: ${workspaceDir}`);
       return workspaceDir;
     }
   }
@@ -131,7 +131,8 @@ export function clearDataDirCache(): void {
   _cachedDataDir = null;
 }
 
-export const DATA_DIR = getDataDir();
+// Removed DATA_DIR constant to prevent module-load-time computation
+// Use getDataDir() function instead for dynamic resolution
 
 // Dynamic file paths that update when data directory changes
 export function getProjectFile(): string {
@@ -154,13 +155,13 @@ export function getConfigFile(): string {
   return path.join(getDataDir(), 'memory-config.yaml');
 }
 
-// Legacy constants for backward compatibility
-export const PROJECT_FILE = getProjectFile();
-export const PROJECTS_FILE = getProjectsFile();
-export const TASKS_FILE = getTasksFile();
-export const MEMORIES_FILE = getMemoriesFile();
-export const STUB_FILE = PROJECT_FILE;
-export const CONFIG_FILE = getConfigFile();
+// Legacy constants removed to prevent module-load-time computation
+// Use the corresponding functions instead:
+// - getProjectFile() instead of PROJECT_FILE
+// - getProjectsFile() instead of PROJECTS_FILE
+// - getTasksFile() instead of TASKS_FILE
+// - getMemoriesFile() instead of MEMORIES_FILE
+// - getConfigFile() instead of CONFIG_FILE
 
 // Server configuration
 export const SERVER_CONFIG = {
@@ -168,8 +169,8 @@ export const SERVER_CONFIG = {
   version: "1.1.1",
 } as const;
 
-// UI configuration
-export const USE_EMOJIS = process.env.MEMORY_PICKLE_NO_EMOJIS !== 'true';
+// UI configuration - Default to clean text mode (no emojis)
+export const USE_EMOJIS = process.env.MEMORY_PICKLE_USE_EMOJIS === 'true';
 
 // YAML serialization options
 export const YAML_OPTIONS = {

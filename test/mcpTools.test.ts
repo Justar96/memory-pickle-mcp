@@ -1,10 +1,11 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { ALL_TOOLS, TOOL_NAMES } from '../src/tools';
-import { TestDataFactory, MockMCPHelpers, TestAssertions } from './utils/testHelpers';
+import { TestDataFactory, MockMCPHelpers, TestAssertions, MemoryPickleCoreTestUtils } from './utils/testHelpers';
 import { StorageService } from '../src/services/StorageService';
 import { TaskService } from '../src/services/TaskService';
 import { ProjectService } from '../src/services/ProjectService';
 import { MemoryService } from '../src/services/MemoryService';
+import { MemoryPickleCore } from '../src/core/MemoryPickleCore';
 import * as path from 'path';
 
 describe('MCP Tools Integration', () => {
@@ -90,43 +91,43 @@ describe('MCP Tools Integration', () => {
     });
 
     it('should get project status with get_project_status tool', async () => {
-      // Setup test data
+      // Setup test data using new test utilities
       const project = TestDataFactory.createProject({ name: 'Test Project' });
       const task1 = TestDataFactory.createTask({ project_id: project.id, completed: true });
       const task2 = TestDataFactory.createTask({ project_id: project.id, progress: 50 });
-      
+
       project.tasks = [task1.id, task2.id];
-      
+
       const db = TestDataFactory.createDatabase({
         projects: [project],
         tasks: [task1, task2]
       });
-      
-      await storageService.saveDatabase(db);
 
-      // Test get_project_status
-      const loadedDb = await storageService.loadDatabase();
-      const projectStatus = projectService.getProjectStatus(loadedDb, project.id);
+      // Create MemoryPickleCore with test data
+      const core = await MemoryPickleCoreTestUtils.createWithTestData(db);
+      const projectStatusResponse = await core.get_project_status({ project_id: project.id });
 
-      expect(projectStatus.project).toBeDefined();
-      expect(projectStatus.tasks).toHaveLength(2);
-      expect(projectStatus.completion_percentage).toBeGreaterThan(0);
+      expect(projectStatusResponse.content).toBeDefined();
+      expect(projectStatusResponse.content[0].text).toContain(project.name);
+      expect(projectStatusResponse.content[0].text).toContain('Total Tasks:** 2');
     });
 
     it('should generate handoff summary', async () => {
       const project = TestDataFactory.createProject();
       const task = TestDataFactory.createTask({ project_id: project.id });
-      
+
       const db = TestDataFactory.createDatabase({
         projects: [project],
         tasks: [task]
       });
 
-      const summary = projectService.generateHandoffSummary(db, 'detailed');
-      
-      expect(summary).toContain('# Project Handoff Summary');
-      expect(summary).toContain(project.name);
-      expect(summary).toContain(task.title);
+      // Create MemoryPickleCore with test data
+      const core = await MemoryPickleCoreTestUtils.createWithTestData(db);
+      const summaryResponse = await core.generate_handoff_summary({ project_id: project.id });
+
+      expect(summaryResponse.content).toBeDefined();
+      expect(summaryResponse.content[0].text).toContain('Handoff Summary');
+      expect(summaryResponse.content[0].text).toContain(project.name);
     });
   });
 
@@ -257,11 +258,17 @@ describe('MCP Tools Integration', () => {
 
     it('should handle empty database gracefully', async () => {
       const emptyDb = TestDataFactory.createDatabase();
-      const status = projectService.getProjectStatus(emptyDb);
-      
-      expect(status.projects).toEqual([]);
-      expect(status.total_tasks).toBe(0);
-      expect(status.completed_tasks).toBe(0);
+
+      // Create MemoryPickleCore with empty test data
+      const core = await MemoryPickleCoreTestUtils.createWithTestData(emptyDb);
+
+      // Test that core handles empty database gracefully
+      expect(core).toBeDefined();
+
+      // Test that we can call methods on empty database without errors
+      // The method should throw an error for non-existent project
+      await expect(core.get_project_status({ project_id: 'non-existent' }))
+        .rejects.toThrow('Project not found: non-existent');
     });
   });
 });

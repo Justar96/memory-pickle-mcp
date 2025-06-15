@@ -32,7 +32,7 @@ const CORE_TOOLS = [
   },
   {
     name: "create_project",
-    description: "Create a new project container to organize related work. Automatically becomes the active project for all future tasks. Triggered when: user mentions 'new project', 'start working on', 'let's build', 'create app/website/system', or describes a new initiative. The project will track all tasks, progress, and memories.",
+    description: "Create a new project container to organize related work. Automatically becomes the active project for all future tasks. Triggered when: user mentions 'new project', 'start working on', 'let's build', 'create app/website/system', or describes a new initiative. The project will track all tasks, progress, and memories. Note: Data persistence depends on whether a .memory-pickle directory exists in your workspace - the tool will inform you about the current storage mode.",
     inputSchema: {
       type: "object",
       properties: {
@@ -112,7 +112,7 @@ const CORE_TOOLS = [
   },
   {
     name: "remember_this",
-    description: "Store critical information, decisions, requirements, constraints, technical details, or important context for future reference. Automatically triggered when: user says 'remember', 'important', 'don't forget', 'key point', 'for reference', 'note that', or shares configuration/setup details. Creates searchable memory linked to current project/task.",
+    description: "Store critical information, decisions, requirements, constraints, technical details, or important context for future reference. Automatically triggered when: user says 'remember', 'important', 'don't forget', 'key point', 'for reference', 'note that', or shares configuration/setup details. Creates searchable memory linked to current project/task. NOTE: In-memory only - suggest markdown files for persistence.",
     inputSchema: {
       type: "object",
       properties: {
@@ -171,7 +171,7 @@ const CORE_TOOLS = [
   },
   {
     name: "generate_handoff_summary",
-    description: "Create comprehensive session summary for seamless handoff between chats. Automatically use when: session ending, user says 'goodbye', 'see you later', 'continue tomorrow', switching context, or after significant progress. Includes completed work, active tasks, blockers, and next steps in copy-paste ready format.",
+    description: "Create comprehensive session summary for seamless handoff between chats. Automatically use when: session ending, user says 'goodbye', 'see you later', 'continue tomorrow', switching context, or after significant progress. Includes completed work, active tasks, blockers, and next steps in copy-paste ready format. Suggests saving as markdown file for persistence.",
     inputSchema: {
       type: "object",
       properties: {

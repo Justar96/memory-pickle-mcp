@@ -102,15 +102,35 @@ The agent has access to **8 essential tools** for streamlined project management
 
 ## 💾 Data Storage
 
-Your data is stored locally in a `.memory-pickle/` folder with split-file architecture:
-- `projects.yaml` - Your projects and metadata
-- `tasks.yaml` - All tasks with hierarchy and progress
-- `memories.yaml` - Important notes and decisions
-- `meta.yaml` - Session tracking, settings, and templates
+Memory Pickle MCP operates in two modes based on whether a `.memory-pickle` directory exists:
+
+### **🧠 Memory-Only Mode (Default)**
+- **When**: No `.memory-pickle` directory exists
+- **Behavior**: All tools work normally, but data is lost when session ends
+- **Use case**: Temporary work, testing, or when you don't want files created
+
+### **💾 Persistent Mode**
+- **When**: `.memory-pickle` directory exists in your workspace
+- **Behavior**: Data is saved to disk and persists between sessions
+- **Files created**:
+  - `projects.yaml` - Your projects and metadata
+  - `tasks.yaml` - All tasks with hierarchy and progress
+  - `memories.yaml` - Important notes and decisions
+  - `meta.yaml` - Session tracking, settings, and templates
+
+### **🎯 Quick Setup**
+
+```bash
+# For persistent storage (recommended for real projects)
+mkdir .memory-pickle
+
+# For memory-only mode (temporary work)
+# Don't create any directory
+```
+
+**📖 For detailed storage behavior, limitations, and troubleshooting, see [STORAGE-MODES.md](STORAGE-MODES.md)**
 
 ### 🔄 Session Reset
-
-**Need a fresh start?** Simply delete the `.memory-pickle` folder:
 
 ```bash
 # Complete reset - removes all projects, tasks, and memories
@@ -191,7 +211,7 @@ npm run build
 }
 ```
 
-**Clean text mode (no emojis):**
+**With emojis (optional):**
 ```json
 {
   "mcpServers": {
@@ -199,7 +219,7 @@ npm run build
       "command": "npx",
       "args": ["-y", "@cabbages/memory-pickle-mcp"],
       "env": {
-        "MEMORY_PICKLE_NO_EMOJIS": "true"
+        "MEMORY_PICKLE_USE_EMOJIS": "true"
       }
     }
   }
@@ -233,10 +253,10 @@ npm run build
 - Status tracking (planning/in_progress/completed)
 
 **User Experience:**
-- 🎭 **Configurable Output**: Choose between emoji-rich or clean text mode
-- 🏢 **Corporate Friendly**: Professional text output for enterprise environments
-- 🖥️ **Universal Compatibility**: Works in any terminal, SSH, or restricted environment
-- 🎨 **Visual or Minimal**: `✅ Task completed!` vs `[OK] Task completed!`
+- **Professional Output**: Clean text mode by default for corporate environments
+- **Universal Compatibility**: Works in any terminal, SSH, or restricted environment
+- **Optional Emojis**: Enable emoji mode if preferred with `MEMORY_PICKLE_USE_EMOJIS=true`
+- **Clean or Visual**: `[OK] Task completed!` vs `✅ Task completed!`
 
 **Session Continuity:**
 - Auto-loads project status at session start

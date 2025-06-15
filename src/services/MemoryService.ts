@@ -72,26 +72,28 @@ export class MemoryService {
     limit?: number;
   }): Memory[] {
     const { query, category, tags, limit = 10 } = args;
-    
-    if (!query) {
+
+    // Allow searching by tags alone, or require query if no other filters
+    if (!query && !category && !tags) {
       return [];
     }
 
-    const lowerQuery = query.toLowerCase();
+    const lowerQuery = query?.toLowerCase();
     
     const results = memories.filter(memory => {
       const lowerCaseTags = memory.tags.map(t => t.toLowerCase());
 
-      const matchesQuery =
+      const matchesQuery = !lowerQuery || (
         memory.title.toLowerCase().includes(lowerQuery) ||
         memory.content.toLowerCase().includes(lowerQuery) ||
-        lowerCaseTags.some(tag => tag.includes(lowerQuery));
-      
+        lowerCaseTags.some(tag => tag.includes(lowerQuery))
+      );
+
       const matchesCategory = !category || memory.category.toLowerCase() === category.toLowerCase();
-      
+
       // Use AND logic for tags: all provided tags must be present.
       const matchesTags = !tags || tags.every((tag: string) => lowerCaseTags.includes(tag.toLowerCase()));
-      
+
       return matchesQuery && matchesCategory && matchesTags;
     }).slice(0, limit);
 

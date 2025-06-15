@@ -5,7 +5,7 @@
       "args": ["-y", "@cabbages/memory-pickle-mcp"],
       "env": {
         "NODE_ENV": "production",
-        "MEMORY_PICKLE_NO_EMOJIS": "true"
+        "MEMORY_PICKLE_USE_EMOJIS": "true"
       }
     }
   }

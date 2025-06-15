@@ -106,7 +106,7 @@ export class MemoryPickleCore {
     return {
       content: [{
         type: "text",
-        text: `${EMOJIS.SUCCESS} **Project Created Successfully!**\n\n**Name:** ${result.name}\n**ID:** ${result.id}\n**Status:** ${result.status}\n**Description:** ${result.description || 'No description provided'}\n\n✅ **This project is now your current project.** You can add tasks using the \`create_task\` tool without specifying a project_id.`
+        text: `${EMOJIS.SUCCESS} **Project Created Successfully!**\n\n**Name:** ${result.name}\n**ID:** ${result.id}\n**Status:** ${result.status}\n**Description:** ${result.description || 'No description provided'}\n\n${EMOJIS.SUCCESS} **This project is now your current project.** You can add tasks using the \`create_task\` tool without specifying a project_id.\n\n${EMOJIS.INFO} **Note:** Data is stored in memory only. Consider creating markdown files to document your project progress for future reference.`
       }]
     };
   }
@@ -114,16 +114,23 @@ export class MemoryPickleCore {
   async get_project_status(args: any): Promise<any> {
     const { project_id } = args;
 
-    if (!project_id) {
-      throw new Error('Project ID is required');
+    // If no project_id provided, try to use the current project from meta
+    let targetProjectId = project_id;
+    if (!targetProjectId && this.database.meta?.current_project_id) {
+      targetProjectId = this.database.meta.current_project_id;
     }
 
-    const project = this.projectService.findProjectById(this.database.projects, project_id);
+    // If still no project_id, show all projects
+    if (!targetProjectId) {
+      return this.getAllProjectsStatus();
+    }
+
+    const project = this.projectService.findProjectById(this.database.projects, targetProjectId);
     if (!project) {
-      throw new Error(`Project not found: ${project_id}`);
+      throw new Error(`Project not found: ${targetProjectId}`);
     }
 
-    const projectTasks = this.database.tasks.filter(task => task.project_id === project_id);
+    const projectTasks = this.database.tasks.filter(task => task.project_id === targetProjectId);
     const completedTasks = projectTasks.filter(task => task.completed);
     const activeTasks = projectTasks.filter(task => !task.completed);
 
@@ -168,6 +175,49 @@ export class MemoryPickleCore {
         statusText += `- ... and ${activeTasks.length - 5} more\n`;
       }
     }
+
+    return {
+      content: [{
+        type: "text",
+        text: statusText
+      }]
+    };
+  }
+
+  /**
+   * Get status for all projects when no specific project is requested
+   */
+  private getAllProjectsStatus(): any {
+    const projects = this.database.projects;
+
+    if (projects.length === 0) {
+      return {
+        content: [{
+          type: "text",
+          text: `${EMOJIS.INFO} **No Projects Found**\n\nYou haven't created any projects yet. Use the \`create_project\` tool to get started!`
+        }]
+      };
+    }
+
+    let statusText = `${EMOJIS.INFO} **All Projects Overview**\n\n`;
+
+    projects.forEach(project => {
+      const projectTasks = this.database.tasks.filter(task => task.project_id === project.id);
+      const completedTasks = projectTasks.filter(task => task.completed);
+      const completion = projectTasks.length > 0
+        ? Math.round((completedTasks.length / projectTasks.length) * 100)
+        : 0;
+
+      const isCurrentProject = this.database.meta?.current_project_id === project.id;
+      const currentMarker = isCurrentProject ? ' 👈 **CURRENT**' : '';
+
+      statusText += `**${project.name}**${currentMarker}\n`;
+      statusText += `- Status: ${project.status}\n`;
+      statusText += `- Tasks: ${projectTasks.length} total, ${completedTasks.length} completed (${completion}%)\n`;
+      statusText += `- ID: ${project.id}\n\n`;
+    });
+
+    statusText += `Use \`get_project_status\` with a specific project_id for detailed information.`;
 
     return {
       content: [{
@@ -312,19 +362,32 @@ export class MemoryPickleCore {
       const updatedTask = this.taskService.updateTask(db.tasks, task_id, updates);
 
       // Add notes and blockers if provided
-      if (notes?.trim()) {
+      if (notes) {
         if (!updatedTask.notes) updatedTask.notes = [];
-        updatedTask.notes.push(`${new Date().toISOString()}: ${notes.trim()}`);
+
+        if (Array.isArray(notes)) {
+          // Handle array of notes
+          for (const note of notes) {
+            if (note?.trim()) {
+              updatedTask.notes.push(`${new Date().toISOString()}: ${note.trim()}`);
+            }
+          }
+        } else if (typeof notes === 'string' && notes.trim()) {
+          // Handle single note string
+          updatedTask.notes.push(`${new Date().toISOString()}: ${notes.trim()}`);
+        }
       }
+
       if (blockers && Array.isArray(blockers)) {
         updatedTask.blockers = [...(updatedTask.blockers || []), ...blockers];
       }
 
       // Add progress note as memory if provided
-      if (notes?.trim()) {
+      const noteContent = Array.isArray(notes) ? notes.join('; ') : notes;
+      if (noteContent?.trim()) {
         this.memoryService.addMemory(db.memories, {
           title: `Progress: ${task.title}`,
-          content: notes.trim(),
+          content: noteContent.trim(),
           importance: 'medium',
           project_id: task.project_id,
           task_id: task.id
@@ -344,7 +407,7 @@ export class MemoryPickleCore {
 
     let response = `${EMOJIS.SUCCESS} **Task Updated Successfully!**\n\n**${result.title}**\n`;
     if (completed !== undefined) {
-      response += `Status: ${result.completed ? 'Completed ✅' : 'Active 🔄'}\n`;
+      response += `Status: ${result.completed ? `Completed ${EMOJIS.COMPLETED}` : `Active ${EMOJIS.ACTIVE}`}\n`;
     }
     if (priority !== undefined) {
       response += `Priority: ${result.priority}\n`;
@@ -352,7 +415,8 @@ export class MemoryPickleCore {
     if (progress !== undefined) {
       response += `Progress: ${progress}%\n`;
     }
-    if (notes?.trim()) {
+    const noteContent = Array.isArray(notes) ? notes.join('; ') : notes;
+    if (noteContent?.trim()) {
       response += `Progress note saved.\n`;
     }
     if (blockers && blockers.length > 0) {
@@ -400,10 +464,17 @@ export class MemoryPickleCore {
     // Update local state after successful commit
     this.database = await this.storageService.loadDatabase();
 
+    // Generate markdown suggestion for critical/high importance memories
+    let markdownSuggestion = '';
+    if (result.importance === 'critical' || result.importance === 'high') {
+      const filename = result.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.md';
+      markdownSuggestion = `\n\n${EMOJIS.INFO} **Suggestion:** Since this is ${result.importance} importance, consider creating a markdown file:\n\`\`\`markdown\n# ${result.title}\n\n${result.content}\n\n*Created: ${new Date().toLocaleDateString()}*\n*Importance: ${result.importance}*\n\`\`\`\n\nSave as: \`${filename}\``;
+    }
+
     return {
       content: [{
         type: "text",
-        text: `${EMOJIS.SUCCESS} **Memory Saved!**\n\n**Title:** ${result.title}\n**Importance:** ${result.importance}\n**Content:** ${result.content.substring(0, 100)}${result.content.length > 100 ? '...' : ''}`
+        text: `${EMOJIS.SUCCESS} **Memory Saved!**\n\n**Title:** ${result.title}\n**Importance:** ${result.importance}\n**Content:** ${result.content.substring(0, 100)}${result.content.length > 100 ? '...' : ''}${markdownSuggestion}`
       }]
     };
   }
@@ -528,10 +599,14 @@ export class MemoryPickleCore {
       summary += `---\n\n`;
     }
 
+    // Add markdown file suggestion
+    const dateStr = new Date().toISOString().split('T')[0];
+    const markdownSuggestion = `\n\n💡 **Suggestion:** Save this summary as a markdown file for future reference:\n\`session-summary-${dateStr}.md\`\n\nThis will help you pick up where you left off in future sessions.`;
+
     return {
       content: [{
         type: "text",
-        text: summary
+        text: summary + markdownSuggestion
       }]
     };
   }
@@ -589,4 +664,6 @@ export class MemoryPickleCore {
   getTaskIndex(): Map<string, Task> {
     return this.taskIndex;
   }
+
+
 }
