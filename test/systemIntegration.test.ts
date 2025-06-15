@@ -33,7 +33,7 @@ describe('System Integration - Complete MCP Workflow Testing', () => {
       // Verify project is set as current
       const initialStatus = await core.get_project_status({});
       expect(initialStatus.content[0].text).toContain('E-commerce Platform');
-      expect(initialStatus.content[0].text).toContain('Total Tasks:** 0');
+      expect(initialStatus.content[0].text).toContain('**Total Tasks:** 0');
       
       // === PHASE 2: Task Creation and Management ===
       console.log('📋 Testing task creation and management...');
@@ -280,7 +280,7 @@ describe('System Integration - Complete MCP Workflow Testing', () => {
       // Test task operations without current project
       const emptyCore = await MemoryPickleCore.create();
       await expect(emptyCore.create_task({ title: 'Test Task' }))
-        .rejects.toThrow('Project ID is required');
+        .rejects.toThrow('No current project set');
 
       // Create project for further testing
       await core.create_project({

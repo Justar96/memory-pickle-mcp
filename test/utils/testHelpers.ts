@@ -138,7 +138,6 @@ export class MemoryPickleCoreTestUtils {
 
     // Create MemoryPickleCore instance with test data
     const core = new MemoryPickleCore(
-      database,
       storageService,
       projectService,
       taskService,

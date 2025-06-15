@@ -17,9 +17,24 @@ describe('System Robustness and Reliability Tests', () => {
 
   describe('Memory Management', () => {
     it('should handle large datasets without memory leaks', async () => {
+      // Create a project first to set current project
+      const project = await core.create_project({
+        name: 'Test Project',
+        description: 'Project for memory test'
+      });
+      
+      // The project should be automatically set as current by create_project
+      
+      // Verify the current project is set by trying to create a task immediately
+      const testTask = await core.create_task({
+        title: 'Test Task',
+        description: 'Verify current project is set'
+      });
+      expect(testTask.content[0].text).toContain('Task Created Successfully');
+
       // Create many projects, tasks, and memories
-      const projects = [];
-      for (let i = 0; i < 10; i++) { // Reduced for faster testing
+      const projects = [project];
+      for (let i = 1; i < 10; i++) { // Reduced for faster testing
         const result = await core.create_project({
           name: `Project ${i}`,
           description: `Test project ${i}`
@@ -27,7 +42,7 @@ describe('System Robustness and Reliability Tests', () => {
         projects.push(result);
       }
 
-      // Create many tasks (will use the last created project as current)
+      // Create many tasks (will use the current project)
       for (let i = 0; i < 50; i++) { // Reduced for faster testing
         await core.create_task({
           title: `Task ${i}`,
@@ -45,9 +60,9 @@ describe('System Robustness and Reliability Tests', () => {
 
       const stats = core.getSystemStats();
       expect(stats.database.projects).toBe(10);
-      expect(stats.database.tasks).toBe(50);
+      expect(stats.database.tasks).toBe(51); // 50 + 1 test task
       expect(stats.database.memories).toBe(20);
-      expect(stats.taskIndexSize).toBe(50);
+      expect(stats.taskIndexSize).toBe(51);
     });
 
     it('should prevent excessive memory usage', async () => {
@@ -57,7 +72,7 @@ describe('System Robustness and Reliability Tests', () => {
         description: 'Testing limits'
       });
 
-      // Try to create too many tasks (reduced for testing)
+      // Create a reasonable number of tasks - all should succeed within limits
       const promises = [];
       for (let i = 0; i < 50; i++) { // Smaller number for testing
         promises.push(
@@ -70,9 +85,20 @@ describe('System Robustness and Reliability Tests', () => {
 
       const results = await Promise.all(promises);
       const successes = results.filter(r => !(r instanceof Error));
+      const errors = results.filter(r => r instanceof Error);
 
-      // Should have created some tasks successfully
-      expect(successes.length).toBeGreaterThan(0);
+      // Debug: log first few errors
+      if (errors.length > 0) {
+        console.log('Sample errors:', errors.slice(0, 3).map(e => e.message));
+      }
+
+      // All tasks should succeed within reasonable limits
+      expect(successes.length).toBe(50);
+      expect(errors.length).toBe(0);
+
+      // Verify system stats
+      const stats = core.getSystemStats();
+      expect(stats.database.tasks).toBe(50);
     });
   });
 
@@ -150,7 +176,7 @@ describe('System Robustness and Reliability Tests', () => {
       // Test invalid project creation
       await expect(core.create_project({})).rejects.toThrow('Missing required field');
       await expect(core.create_project({ name: '' })).rejects.toThrow('cannot be empty');
-      await expect(core.create_project({ name: 'x'.repeat(101) })).rejects.toThrow('cannot exceed 100 characters');
+      await expect(core.create_project({ name: 'x'.repeat(201) })).rejects.toThrow('cannot exceed 200 characters');
       await expect(core.create_project({ name: 'Test', status: 'invalid' })).rejects.toThrow('Invalid project status');
 
       // Test invalid task creation
@@ -191,9 +217,14 @@ describe('System Robustness and Reliability Tests', () => {
         description: 'Task 2'
       });
 
+      // Get the project ID to create an orphaned memory
+      let db = core.getDatabase();
+      const projectId = db.projects[0]?.id;
+
       await core.remember_this({
         title: 'Test Memory',
-        content: 'Memory content'
+        content: 'Memory content',
+        project_id: projectId
       });
 
       // Verify initial state
@@ -203,7 +234,7 @@ describe('System Robustness and Reliability Tests', () => {
       expect(stats.database.memories).toBe(1);
 
       // Manually corrupt the database by removing the project
-      const db = core.getDatabase();
+      db = core.getDatabase();
       db.projects = []; // Remove all projects
 
       // Run cleanup

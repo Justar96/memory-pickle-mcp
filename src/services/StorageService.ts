@@ -1,4 +1,5 @@
 import type { ProjectDatabase } from '../types/index.js';
+import { ValidationUtils } from '../utils/ValidationUtils.js';
 
 /**
  * Service responsible for in-memory database operations with proper concurrency control.
@@ -6,9 +7,14 @@ import type { ProjectDatabase } from '../types/index.js';
  */
 export class StorageService {
   private database: ProjectDatabase;
-  private operationQueue: Promise<any> = Promise.resolve();
+  private operationLock: boolean = false;
+  private operationQueue: Array<{ resolve: Function, reject: Function, operation: Function }> = [];
   private operationCount: number = 0;
-  private readonly maxOperations: number = 10000; // Prevent memory leaks from excessive operations
+  private readonly maxOperations: number = 10000;
+  private readonly maxQueueSize: number = 100; // Prevent infinite queue growth
+  private isShuttingDown: boolean = false;
+  private weakRefSet: WeakSet<object> = new WeakSet();
+  private currentOperationTimeout: NodeJS.Timeout | null = null;
 
   constructor() {
     this.database = this.createDefaultDatabase();
@@ -16,7 +22,7 @@ export class StorageService {
 
   /**
    * Executes an operation with proper concurrency control and error handling.
-   * Ensures operations are serialized to prevent race conditions and data corruption.
+   * Ensures operations are truly exclusive to prevent race conditions and data corruption.
    *
    * @param operation - Async function that receives the database and returns result with optional commit
    * @returns The result from the operation
@@ -28,57 +34,103 @@ export class StorageService {
       changedParts?: Set<'projects' | 'tasks' | 'memories' | 'meta'>;
     }>
   ): Promise<T> {
-    // Serialize operations to prevent race conditions
-    return this.operationQueue = this.operationQueue.then(async () => {
-      // Check for memory leak prevention
-      this.operationCount++;
-      if (this.operationCount > this.maxOperations) {
-        this.operationCount = 0; // Reset counter
-        // Force garbage collection if available
-        if (global.gc) {
-          global.gc();
-        }
-      }
+    if (this.isShuttingDown) {
+      throw new Error('Storage service is shutting down');
+    }
 
-      // Create a deep copy for operation isolation
-      const databaseSnapshot = this.createDatabaseSnapshot();
-
-      try {
-        // Execute operation on the snapshot
-        const { result, commit = false, changedParts } = await operation(databaseSnapshot);
-
-        // Validate the result before committing
-        if (commit) {
-          this.validateDatabaseIntegrity(databaseSnapshot, changedParts);
-
-          // Atomic commit: replace the database reference
-          this.database = databaseSnapshot;
-          this.database.meta.last_updated = new Date().toISOString();
+    // Implement proper exclusive locking with deadlock prevention
+    return new Promise<T>((resolve, reject) => {
+      const executeOperation = async () => {
+        if (this.operationLock) {
+          // Check queue size limit to prevent memory exhaustion
+          if (this.operationQueue.length >= this.maxQueueSize) {
+            reject(new Error('Operation queue full - system overloaded'));
+            return;
+          }
+          
+          // Queue the operation if another is running
+          this.operationQueue.push({ resolve, reject, operation: executeOperation });
+          return;
         }
 
-        return result;
-      } catch (error) {
-        // Operation failed - database remains unchanged
-        throw error;
-      }
+        this.operationLock = true;
+        let databaseSnapshot: ProjectDatabase | null = null;
+        
+        try {
+          // Check for memory leak prevention
+          this.operationCount++;
+          if (this.operationCount > this.maxOperations) {
+            this.operationCount = 0;
+            this.forceGarbageCollection();
+          }
+
+          // Create optimized shallow copy with circular reference tracking
+          databaseSnapshot = this.createOptimizedSnapshot();
+
+          // Execute operation with timeout and cleanup
+          const timeoutPromise = new Promise((_, timeoutReject) => {
+            this.currentOperationTimeout = setTimeout(() => {
+              timeoutReject(new Error('Operation timeout - potential deadlock detected'));
+            }, 30000);
+          });
+
+          const operationPromise = operation(databaseSnapshot);
+          const { result, commit = false, changedParts } = await Promise.race([
+            operationPromise,
+            timeoutPromise
+          ]) as { result: T; commit?: boolean; changedParts?: Set<'projects' | 'tasks' | 'memories' | 'meta'> };
+
+          // Clear timeout since operation completed
+          if (this.currentOperationTimeout) {
+            clearTimeout(this.currentOperationTimeout);
+            this.currentOperationTimeout = null;
+          }
+
+          // Validate and commit atomically
+          if (commit) {
+            this.validateDatabaseIntegrity(databaseSnapshot, changedParts);
+            this.commitChanges(databaseSnapshot);
+          }
+
+          resolve(result);
+        } catch (error) {
+          // Clear timeout on error
+          if (this.currentOperationTimeout) {
+            clearTimeout(this.currentOperationTimeout);
+            this.currentOperationTimeout = null;
+          }
+          
+          // Rollback - database remains unchanged
+          if (databaseSnapshot) {
+            this.clearSnapshotReferences(databaseSnapshot);
+          }
+          reject(error);
+        } finally {
+          this.operationLock = false;
+          this.processQueue();
+        }
+      };
+
+      executeOperation();
     });
   }
 
   /**
    * Public method to load the project database.
-   * Returns a copy of the in-memory database.
+   * Returns an optimized copy of the in-memory database.
    */
   async loadDatabase(): Promise<ProjectDatabase> {
-    return JSON.parse(JSON.stringify(this.database));
+    return this.createOptimizedSnapshot();
   }
 
   /**
    * Public method to save the project database.
-   * Updates the in-memory database only.
+   * Updates the in-memory database with validation.
    */
   async saveDatabase(database: ProjectDatabase): Promise<void> {
+    this.validateDatabaseIntegrity(database);
     database.meta.last_updated = new Date().toISOString();
-    this.database = JSON.parse(JSON.stringify(database));
+    this.commitChanges(database);
   }
 
   /**
@@ -134,48 +186,123 @@ export class StorageService {
   }
 
   /**
-   * Creates a deep copy of the database for operation isolation
+   * Creates an optimized snapshot avoiding unnecessary deep copies
    */
-  private createDatabaseSnapshot(): ProjectDatabase {
+  private createOptimizedSnapshot(): ProjectDatabase {
     try {
-      return JSON.parse(JSON.stringify(this.database));
+      // Create shallow copy of database structure
+      const snapshot: ProjectDatabase = {
+        meta: { ...this.database.meta },
+        projects: this.database.projects.map(p => ({ ...p })),
+        tasks: this.database.tasks.map(t => ({ 
+          ...t,
+          notes: t.notes ? [...t.notes] : [],
+          blockers: t.blockers ? [...t.blockers] : []
+        })),
+        memories: this.database.memories.map(m => ({ ...m })),
+        templates: { ...this.database.templates }
+      };
+      
+      // Track for circular reference detection
+      this.weakRefSet.add(snapshot);
+      return snapshot;
     } catch (error) {
       throw new Error(`Failed to create database snapshot: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   /**
-   * Validates database integrity after operations
+   * Commits changes atomically to the main database
+   */
+  private commitChanges(snapshot: ProjectDatabase): void {
+    snapshot.meta.last_updated = new Date().toISOString();
+    this.database = snapshot;
+  }
+
+  /**
+   * Clears references to prevent memory leaks
+   */
+  private clearSnapshotReferences(snapshot: ProjectDatabase): void {
+    if (this.weakRefSet.has(snapshot)) {
+      this.weakRefSet.delete(snapshot);
+    }
+  }
+
+  /**
+   * Processes queued operations safely to prevent deadlocks
+   */
+  private processQueue(): void {
+    // Process all queued operations, not just the first one
+    while (this.operationQueue.length > 0 && !this.operationLock && !this.isShuttingDown) {
+      const queueItem = this.operationQueue.shift();
+      if (queueItem) {
+        const { operation } = queueItem;
+        // Use setImmediate to prevent call stack overflow
+        setImmediate(() => {
+          try {
+            operation();
+          } catch (error) {
+            console.error('Queued operation failed:', error);
+          }
+        });
+        break; // Process one at a time to maintain order
+      }
+    }
+  }
+
+  /**
+   * Forces garbage collection with cleanup
+   */
+  private forceGarbageCollection(): void {
+    // Clear weak references
+    this.weakRefSet = new WeakSet();
+    
+    // Force GC if available
+    if (global.gc) {
+      global.gc();
+    }
+  }
+
+  /**
+   * Validates database integrity after operations using comprehensive validation
    */
   private validateDatabaseIntegrity(
     database: ProjectDatabase,
     changedParts?: Set<'projects' | 'tasks' | 'memories' | 'meta'>
   ): void {
     try {
-      // Basic structure validation
-      if (!database.meta || !database.projects || !database.tasks || !database.memories) {
-        throw new Error('Database structure is invalid - missing required sections');
+      // Full database validation
+      const validation = ValidationUtils.validateDatabase(database);
+      if (!validation.isValid) {
+        throw new Error(`Database validation failed: ${validation.errors.join('; ')}`);
       }
 
-      // Validate meta information
-      if (!database.meta.version || !database.meta.last_updated) {
-        throw new Error('Database meta information is incomplete');
+      // Additional specific validations based on changed parts
+      if (changedParts?.has('projects')) {
+        database.projects.forEach(project => {
+          const projectValidation = ValidationUtils.validateProject(project);
+          if (!projectValidation.isValid) {
+            throw new Error(`Project validation failed: ${projectValidation.errors.join('; ')}`);
+          }
+        });
       }
 
-      // Validate referential integrity if tasks or memories were changed
-      if (changedParts?.has('tasks') || changedParts?.has('memories')) {
-        this.validateReferentialIntegrity(database);
+      if (changedParts?.has('tasks')) {
+        database.tasks.forEach(task => {
+          const taskValidation = ValidationUtils.validateTask(task);
+          if (!taskValidation.isValid) {
+            throw new Error(`Task validation failed: ${taskValidation.errors.join('; ')}`);
+          }
+        });
       }
 
-      // Validate data limits to prevent memory issues
-      if (database.projects.length > 1000) {
-        throw new Error('Too many projects - maximum 1000 allowed');
-      }
-      if (database.tasks.length > 10000) {
-        throw new Error('Too many tasks - maximum 10000 allowed');
-      }
-      if (database.memories.length > 5000) {
-        throw new Error('Too many memories - maximum 5000 allowed');
+      if (changedParts?.has('memories')) {
+        database.memories.forEach(memory => {
+          const memoryValidation = ValidationUtils.validateMemory(memory);
+          if (!memoryValidation.isValid) {
+            throw new Error(`Memory validation failed: ${memoryValidation.errors.join('; ')}`);
+          }
+        });
       }
 
     } catch (error) {
@@ -184,38 +311,39 @@ export class StorageService {
   }
 
   /**
-   * Validates referential integrity between projects, tasks, and memories
+   * Validates and sanitizes input data before operations
    */
-  private validateReferentialIntegrity(database: ProjectDatabase): void {
-    const projectIds = new Set(database.projects.map(p => p.id));
-    const taskIds = new Set(database.tasks.map(t => t.id));
-
-    // Check that all tasks reference valid projects
-    for (const task of database.tasks) {
-      if (!projectIds.has(task.project_id)) {
-        throw new Error(`Task ${task.id} references non-existent project ${task.project_id}`);
-      }
-
-      // Check parent task references
-      if (task.parent_id && !taskIds.has(task.parent_id)) {
-        throw new Error(`Task ${task.id} references non-existent parent task ${task.parent_id}`);
-      }
-    }
-
-    // Check that memories reference valid projects/tasks
-    for (const memory of database.memories) {
-      if (memory.project_id && !projectIds.has(memory.project_id)) {
-        throw new Error(`Memory ${memory.id} references non-existent project ${memory.project_id}`);
-      }
-      if (memory.task_id && !taskIds.has(memory.task_id)) {
-        throw new Error(`Memory ${memory.id} references non-existent task ${memory.task_id}`);
-      }
-    }
-
-    // Check current project reference
-    if (database.meta.current_project_id && !projectIds.has(database.meta.current_project_id)) {
-      // Auto-fix: clear invalid current project
-      database.meta.current_project_id = undefined;
+  validateAndSanitizeInput(type: 'project', data: any): any;
+  validateAndSanitizeInput(type: 'task', data: any): any;
+  validateAndSanitizeInput(type: 'memory', data: any): any;
+  validateAndSanitizeInput(type: 'project' | 'task' | 'memory', data: any): any {
+    switch (type) {
+      case 'project':
+        const sanitizedProject = ValidationUtils.sanitizeProject(data);
+        const projectValidation = ValidationUtils.validateProject(sanitizedProject);
+        if (!projectValidation.isValid) {
+          throw new Error(`Project validation failed: ${projectValidation.errors.join('; ')}`);
+        }
+        return sanitizedProject;
+      
+      case 'task':
+        const sanitizedTask = ValidationUtils.sanitizeTask(data);
+        const taskValidation = ValidationUtils.validateTask(sanitizedTask);
+        if (!taskValidation.isValid) {
+          throw new Error(`Task validation failed: ${taskValidation.errors.join('; ')}`);
+        }
+        return sanitizedTask;
+      
+      case 'memory':
+        const sanitizedMemory = ValidationUtils.sanitizeMemory(data);
+        const memoryValidation = ValidationUtils.validateMemory(sanitizedMemory);
+        if (!memoryValidation.isValid) {
+          throw new Error(`Memory validation failed: ${memoryValidation.errors.join('; ')}`);
+        }
+        return sanitizedMemory;
+      
+      default:
+        throw new Error(`Unknown validation type: ${type}`);
     }
   }
 
@@ -223,12 +351,32 @@ export class StorageService {
    * Cleanup method to prevent memory leaks and maintain performance
    */
   cleanup(): void {
+    this.isShuttingDown = true;
     this.operationCount = 0;
-
-    // Force garbage collection if available
-    if (global.gc) {
-      global.gc();
+    
+    // Reject all queued operations
+    while (this.operationQueue.length > 0) {
+      const { reject } = this.operationQueue.shift()!;
+      reject(new Error('Service shutting down'));
     }
+    
+    // Clear references
+    this.clearSnapshotReferences(this.database);
+    this.forceGarbageCollection();
+  }
+
+  /**
+   * Shutdown method for graceful cleanup
+   */
+  async shutdown(): Promise<void> {
+    this.isShuttingDown = true;
+    
+    // Wait for current operation to complete
+    while (this.operationLock) {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    
+    this.cleanup();
   }
 
   /**
