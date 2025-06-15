@@ -106,6 +106,8 @@ Agent: I'll mark deployment as blocked.
 Blocked: Waiting for SSL certificate
 ```
 
+*Note: In v1.3.0, progress updates and blocker tracking are handled by the consolidated `update_task` tool.*
+
 ### Session Handoffs
 
 End sessions with summaries:

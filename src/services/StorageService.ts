@@ -2,10 +2,9 @@ import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
 import * as path from 'path';
 import type { ProjectDatabase } from '../types/index.js';
-import { DATA_DIR, PROJECT_FILE, PROJECTS_FILE, TASKS_FILE, MEMORIES_FILE } from '../config/constants.js';
-import { DEFAULT_TEMPLATES } from '../config/templates.js';
-import { ensureDirectoryExists, fileExists, withFileLock } from '../utils/fileUtils.js';
-import { serializeToYaml, deserializeFromYaml, serializeDataToYaml, deserializeDataFromYaml } from '../utils/yamlUtils.js';
+import { getProjectFile } from '../config/constants.js';
+import { fileExists, withFileLock } from '../utils/fileUtils.js';
+import { deserializeFromYaml, serializeDataToYaml, deserializeDataFromYaml } from '../utils/yamlUtils.js';
 
 /**
  * Service responsible for database persistence and loading operations.
@@ -16,24 +15,14 @@ export class StorageService {
 
   private projectFile: string;
   private dataDir: string;
+  private memoryOnlyDatabase: ProjectDatabase | null = null;
 
-  constructor(projectFile: string = PROJECT_FILE) {
+  constructor(projectFile: string = getProjectFile()) {
     this.projectFile = projectFile;
     this.dataDir = path.dirname(projectFile);
-
-    // Create directory synchronously to avoid race conditions
-    try {
-      if (!fsSync.existsSync(this.dataDir)) {
-        fsSync.mkdirSync(this.dataDir, { recursive: true, mode: 0o755 }); // More permissive for tests
-      }
-    } catch (error: any) {
-      // Only throw if it's not a permission issue (for tests)
-      if (error.code !== 'EACCES' && error.code !== 'EPERM') {
-        console.error("Failed to create data directory:", error);
-        throw new Error(`Cannot create data directory: ${this.dataDir}`);
-      }
-      console.warn("Directory creation failed, will retry on first operation:", error.message);
-    }
+    
+    // No automatic directory creation - let user decide when to persist
+    // Directory will be checked before save operations
   }
 
   /**
@@ -69,10 +58,24 @@ export class StorageService {
 
   /**
    * Internal method to load database without lock (used within runExclusive)
+   * Returns empty database if .memory-pickle directory doesn't exist (memory-only mode)
    */
   private async loadDatabaseInternal(): Promise<ProjectDatabase> {
-    // Check for split-mode files first
+    // Check if data directory exists first
     const projectDir = path.dirname(this.projectFile);
+    try {
+      await fs.access(projectDir);
+    } catch {
+      // Directory doesn't exist - use memory-only mode
+      if (this.memoryOnlyDatabase === null) {
+        console.log('Memory Pickle: Starting in memory-only mode (no .memory-pickle folder found)');
+        this.memoryOnlyDatabase = this.createDefaultDatabase();
+      }
+      // Return a deep copy to prevent external modifications
+      return JSON.parse(JSON.stringify(this.memoryOnlyDatabase));
+    }
+    
+    // Check for split-mode files first
     const projectsFile = path.join(projectDir, 'projects.yaml');
     const tasksFile = path.join(projectDir, 'tasks.yaml');
     const memoriesFile = path.join(projectDir, 'memories.yaml');
@@ -104,6 +107,7 @@ export class StorageService {
   /**
    * Internal method to save database without lock (used within runExclusive)
    * Implements incremental saves - only writes files that have changed
+   * Operates in memory-only mode if .memory-pickle directory doesn't exist
    */
   private async saveDatabaseInternal(
     database: ProjectDatabase,
@@ -113,8 +117,24 @@ export class StorageService {
   ): Promise<void> {
     database.meta.last_updated = new Date().toISOString();
     
-    // Define split file paths
+    // Re-check data directory on each save (to handle mid-session folder creation)
     const projectDir = path.dirname(this.projectFile);
+    try {
+      await fs.access(projectDir);
+      // Directory exists - proceed with save to disk
+      // Also update memory-only database if it exists (for consistency)
+      if (this.memoryOnlyDatabase !== null) {
+        this.memoryOnlyDatabase = JSON.parse(JSON.stringify(database));
+      }
+    } catch {
+      // Directory doesn't exist - operate in memory-only mode
+      // Update the in-memory database
+      console.log('Memory Pickle: Operating in memory-only mode (no .memory-pickle folder found)');
+      this.memoryOnlyDatabase = JSON.parse(JSON.stringify(database));
+      return;
+    }
+    
+    // Define split file paths
     const projectsFile = path.join(projectDir, 'projects.yaml');
     const tasksFile = path.join(projectDir, 'tasks.yaml');
     const memoriesFile = path.join(projectDir, 'memories.yaml');
@@ -244,7 +264,7 @@ export class StorageService {
       projects: [],
       tasks: [],
       memories: [],
-      templates: DEFAULT_TEMPLATES
+      templates: {}
     };
   }
 
@@ -275,7 +295,7 @@ export class StorageService {
       version: '2.0.0',
       session_count: 0,
     };
-    let templates = DEFAULT_TEMPLATES;
+    let templates = {};
 
     if (await fileExists(metaFile)) {
       try {
@@ -336,11 +356,21 @@ export class StorageService {
 
   /**
    * Saves memories to separate file (backward compatibility)
+   * Operates in memory-only mode if .memory-pickle directory doesn't exist
    */
   async saveMemories(memories: any[]): Promise<void> {
     if (!memories || memories.length === 0) return;
 
     await this.runExclusive(async () => {
+      // Check if data directory exists - if not, operate in memory-only mode
+      try {
+        await fs.access(this.dataDir);
+      } catch {
+        // Directory doesn't exist - operate in memory-only mode
+        console.log('Memory Pickle: Memory save skipped (memory-only mode)');
+        return { result: undefined, commit: false };
+      }
+
       const MEMORIES_FILE = path.join(this.dataDir, 'memories.yaml');
       const tempFile = MEMORIES_FILE + '.tmp';
       const yamlContent = serializeDataToYaml(memories);
@@ -354,8 +384,18 @@ export class StorageService {
 
   /**
    * Saves export content to a file
+   * Operates in memory-only mode if .memory-pickle directory doesn't exist
    */
   async saveExport(filename: string, content: string): Promise<void> {
+    // Check if data directory exists - if not, operate in memory-only mode
+    try {
+      await fs.access(this.dataDir);
+    } catch {
+      // Directory doesn't exist - operate in memory-only mode
+      console.log('Memory Pickle: Export skipped (memory-only mode) - create .memory-pickle folder to enable file exports');
+      return;
+    }
+
     const exportPath = path.join(this.dataDir, filename);
     await fs.writeFile(exportPath, content, 'utf8');
   }

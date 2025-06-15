@@ -4,7 +4,7 @@ This guide explains how to integrate Memory Pickle MCP with different AI agent I
 
 ## 🎯 Universal MCP Configuration
 
-Memory Pickle MCP works with any MCP-compatible client. The server provides 13 tools for persistent project management and memory.
+Memory Pickle MCP works with any MCP-compatible client. The server provides 8 essential tools for streamlined project management and memory.
 
 ### Core Configuration Template
 ```json
@@ -14,7 +14,8 @@ Memory Pickle MCP works with any MCP-compatible client. The server provides 13 t
       "command": "npx",
       "args": ["-y", "@cabbages/memory-pickle-mcp"],
       "env": {
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "MEMORY_PICKLE_WORKSPACE": "/path/to/your/project"
       }
     }
   }
@@ -119,7 +120,7 @@ For easier deployment across different environments:
 
 ### Environment Variables
 - `NODE_ENV`: Set to "production" for optimized performance
-- `MEMORY_PICKLE_DATA_DIR`: Custom data directory (default: `.memory-pickle/`)
+- `MEMORY_PICKLE_WORKSPACE`: Explicit project directory (agent will create `.memory-pickle/` here)
 - `MEMORY_PICKLE_NO_EMOJIS`: Set to "true" to disable emojis for clean text output
 
 ### Advanced Configuration
@@ -131,10 +132,9 @@ For easier deployment across different environments:
       "args": ["-y", "@cabbages/memory-pickle-mcp"],
       "env": {
         "NODE_ENV": "production",
-        "MEMORY_PICKLE_DATA_DIR": "/custom/path/.memory-pickle",
+        "MEMORY_PICKLE_WORKSPACE": "/path/to/your/project",
         "MEMORY_PICKLE_NO_EMOJIS": "true"
-      },
-      "cwd": "/path/to/working/directory"
+      }
     }
   }
 }
@@ -172,28 +172,23 @@ For corporate environments or personal preference, disable emojis:
 [DONE] Task 2 [medium]
 ```
 
-## 🛠️ Available Tools (13 Total)
+## 🛠️ Available Tools (8 Essential Tools)
 
-### Project Management (4 tools)
-- `create_project` - Initialize new projects
-- `get_project_status` - View project overview and tasks
-- `set_current_project` - Switch between projects
-- `generate_handoff_summary` - Create session summaries
+### Core Tools
+1. **`get_project_status`** - Show current project status and tasks (auto-loads at session start)
+2. **`create_project`** - Create new projects (automatically becomes current project)
+3. **`create_task`** - Add tasks with auto-priority detection
+4. **`update_task`** - Handle all task updates: completion, progress, notes, blockers
+5. **`remember_this`** - Store important decisions and context
+6. **`recall_context`** - Search and retrieve stored memories
+7. **`generate_handoff_summary`** - Create session handoff summaries
+8. **`set_current_project`** - Switch between multiple projects
 
-### Task Management (4 tools)
-- `create_task` - Add new tasks with auto-priority detection
-- `toggle_task` - Mark tasks complete/incomplete
-- `update_task_progress` - Update progress, notes, blockers
-- `get_tasks` - Filter and display tasks
-
-### Memory Management (2 tools)
-- `remember_this` - Store important decisions and context
-- `recall_context` - Search and retrieve memories
-
-### Utilities (3 tools)
-- `export_to_markdown` - Generate project documentation
-- `apply_template` - Use planning templates (project_checklist, sprint_planning, daily_standup)
-- `list_categories` - Show overview and statistics
+### Simplified Design
+- **One tool per function** - No redundancy or overlap
+- **Smart defaults** - Tools work together automatically
+- **Agent-friendly** - Clear, focused functionality
+- **Essential only** - Removed rarely-used utilities and diagnostics
 
 ## 📁 Data Storage
 
@@ -205,12 +200,12 @@ Memory Pickle stores data in `.memory-pickle/` directory:
 
 ## 🔍 Testing Your Integration
 
-1. **Verify Server**: `node build/index.js` should output "Memory Pickle MCP server v2.0 running"
+1. **Verify Server**: `node build/index.js` should output "Memory Pickle MCP server v1.3.0 running"
 2. **Test with Inspector**: `npm run inspector` opens web interface at http://localhost:6274
-3. **Check Tools**: All 13 tools should be listed and callable
+3. **Check Tools**: All 8 essential tools should be listed and callable
 4. **Test Basic Flow**:
    ```
-   create_project → create_task → get_project_status → toggle_task
+   create_project → create_task → get_project_status → update_task
    ```
 
 ## 🚨 Troubleshooting

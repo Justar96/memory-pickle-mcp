@@ -11,13 +11,19 @@ Add this to your MCP configuration:
   "mcpServers": {
     "memory-pickle": {
       "command": "npx",
-      "args": ["-y", "@cabbages/memory-pickle-mcp"]
+      "args": ["-y", "@cabbages/memory-pickle-mcp"],
+      "env": {
+        "MEMORY_PICKLE_WORKSPACE": "/path/to/your/project"
+      }
     }
   }
 }
 ```
 
-That's it! Your agent will now remember your projects and tasks across sessions.
+That's it! Your agent will now:
+- Check your project root directory
+- Create `.memory-pickle/` folder in your project (not IDE root)
+- Remember your projects and tasks across sessions
 
 ## 🔗 Links
 
@@ -40,7 +46,7 @@ That's it! Your agent will now remember your projects and tasks across sessions.
 The agent automatically:
 1. **Loads project status** at the start of each session via `get_project_status`
 2. **Creates tasks** when you mention work items using `create_task`
-3. **Marks tasks complete** when you say they're done with `toggle_task`
+3. **Updates tasks** when you report progress or completion with `update_task`
 4. **Tracks progress** and shows completion percentages
 5. **Generates handoff summaries** for seamless session transitions
 
@@ -69,46 +75,30 @@ Agent: [Automatically loads via get_project_status]
 **Making progress:**
 ```
 You: "I finished the task component"
-Agent: Great! Marking that as complete.
+Agent: Great! Updating that task as complete.
 ✅ Task component - Done!
 📈 Project is now 67% complete.
 ```
 
 ## 🛠️ Available Tools
 
-The agent has access to **17 tools** organized in 5 categories:
+The agent has access to **8 essential tools** for streamlined project management:
 
-### 📁 Project Management (4 tools)
-- `create_project` - Initialize new project containers
-- `get_project_status` - Show hierarchical task tree ⭐ *Auto-loads at session start*
-- `update_project` - Modify project details and status
-- `list_projects` - View all projects with completion status
-- `set_current_project` - Switch between multiple projects
-- `generate_handoff_summary` - Create session transitions
+### 📊 **Core Tools**
+1. **`get_project_status`** - Show current project status and tasks ⭐ *Auto-loads at session start*
+2. **`create_project`** - Create new projects (automatically becomes current project)
+3. **`create_task`** - Add tasks with auto-priority detection
+4. **`update_task`** - Handle all task updates: completion, progress, notes, blockers
+5. **`remember_this`** - Store important decisions and context
+6. **`recall_context`** - Search and retrieve stored memories
+7. **`generate_handoff_summary`** - Create session handoff summaries
+8. **`set_current_project`** - Switch between multiple projects
 
-### ✅ Task Management (4 tools)
-- `create_task` - Add tasks with automatic priority detection
-- `update_task` - Modify task details and properties
-- `toggle_task` - Complete/uncomplete with progress updates
-- `update_task_progress` - Track progress, notes, and blockers
-- `get_tasks` - Filter and display tasks by criteria
-
-### 🧠 Memory Management (4 tools)
-- `remember_this` - Store important decisions and context
-- `add_memory` - Alternative memory storage method
-- `recall_context` - Search and retrieve memories
-- `search_memories` - Advanced memory search with filters
-
-### 🔧 Utilities (3 tools)
-- `export_to_markdown` - Generate documentation from project data
-- `apply_template` - Guide users through structured planning
-- `list_templates` - Show available planning templates
-- `list_categories` - Show overview and available templates
-
-### 🛡️ Data Integrity (3 tools)
-- `validate_database` - Check and repair data integrity issues
-- `check_workflow_state` - Verify workflow consistency
-- `repair_orphaned_data` - Fix orphaned tasks and memories
+### 🎯 **Simplified Design**
+- **One tool per function** - No redundancy or overlap
+- **Smart defaults** - Tools work together automatically
+- **Agent-friendly** - Clear, focused functionality
+- **Essential only** - Removed rarely-used utilities and diagnostics
 
 ## 💾 Data Storage
 
@@ -136,7 +126,7 @@ This gives you a completely clean slate. The folder will be recreated automatica
 - You're switching to a different project context
 - Testing or development purposes
 
-**⚠️ Warning**: This permanently deletes all your project data. Export important projects first using `export_to_markdown` if needed.
+**⚠️ Warning**: This permanently deletes all your project data. Create a handoff summary first using `generate_handoff_summary` if needed.
 
 ## 📚 Documentation
 
@@ -185,7 +175,7 @@ npm run build
 }
 ```
 
-**With environment variables:**
+**With workspace configuration (recommended):**
 ```json
 {
   "mcpServers": {
@@ -193,6 +183,7 @@ npm run build
       "command": "npx",
       "args": ["-y", "@cabbages/memory-pickle-mcp"],
       "env": {
+        "MEMORY_PICKLE_WORKSPACE": "/path/to/your/project",
         "NODE_ENV": "production"
       }
     }
@@ -261,10 +252,10 @@ npm run build
 - Search and retrieval functionality
 
 **Data Integrity:**
-- Automatic validation and repair on startup
-- Orphaned data detection and cleanup
-- Referential integrity checks
-- Workflow state validation
+- Automatic validation on startup
+- Clean YAML-based storage format
+- Referential integrity between projects and tasks
+- Simple file-based architecture for reliability
 
 ## 🤔 Why Use This?
 
@@ -275,9 +266,9 @@ It's designed to work invisibly - the agent just becomes better at remembering a
 ## � Troubleshooting
 
 **Agent seems confused or data looks wrong?**
-1. Try the data integrity tools: `validate_database` or `repair_orphaned_data`
-2. For a complete fresh start: delete the `.memory-pickle` folder
-3. Check the [Installation Guide](docs/INSTALLATION.md) for setup issues
+1. For a complete fresh start: delete the `.memory-pickle` folder
+2. Check the [Installation Guide](docs/INSTALLATION.md) for setup issues
+3. Verify the `MEMORY_PICKLE_WORKSPACE` environment variable points to your project
 
 **Tools not working?**
 - Ensure you're using the latest version: `npx -y @cabbages/memory-pickle-mcp`
@@ -286,7 +277,7 @@ It's designed to work invisibly - the agent just becomes better at remembering a
 
 **Performance issues?**
 - Large projects (1000+ tasks) may be slower
-- Consider using `export_to_markdown` to archive completed projects
+- Consider creating handoff summaries to archive completed work
 - Reset sessions periodically by deleting `.memory-pickle`
 
 ## �📄 License
@@ -295,16 +286,16 @@ Apache 2.0 License - Use freely in your projects!
 
 ## 📊 Version
 
-**Current:** 1.2.0 (MEM-Pickle MCP - agent planing tools :))
+**Current:** 1.3.0 (Simplified & Streamlined)
 
 **Package:** [@cabbages/memory-pickle-mcp](https://www.npmjs.com/package/@cabbages/memory-pickle-mcp)
 
-### Recent Updates (v1.2.0)
-- ✅ Fixed MemoryPickleCore compilation issues after refactoring
-- 🛡️ Added comprehensive data integrity tools (3 new tools)
-- 🔧 Enhanced service layer with missing methods
-- 📝 Updated documentation to match current system
-- 🎯 Improved TypeScript type safety and error handling
+### Recent Updates (v1.3.0)
+- 🎯 **Simplified Tools**: Reduced from 17 to 8 essential tools
+- 🔄 **Consolidated Functions**: `update_task` handles completion, progress, and blockers
+- 🚀 **Auto-Current Project**: New projects automatically become current
+- 🧹 **Removed Redundancy**: Eliminated duplicate and rarely-used tools
+- 📝 **Streamlined Agent Instructions**: Clearer, simpler workflow rules
 
 ---
 

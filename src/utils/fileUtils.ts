@@ -85,11 +85,22 @@ export async function withFileLock<T>(
     for (let i = 0; i < maxRetries; i++) {
       try {
         const lockInfo = createLockInfo();
+        
+        // Ensure the directory exists before creating lock file
+        const lockDir = path.dirname(lockFile);
+        try {
+          await fs.access(lockDir);
+        } catch {
+          // Directory doesn't exist - skip locking for memory-only mode
+          console.log('Memory Pickle: Skipping file lock (directory does not exist)');
+          return;
+        }
+        
         // Use mode 0o600 for secure permissions (owner read/write only)
         // 'wx' flag fails if the file already exists (atomic operation)
-        await fs.writeFile(lockFile, JSON.stringify(lockInfo, null, 2), { 
-          flag: 'wx', 
-          mode: 0o600 
+        await fs.writeFile(lockFile, JSON.stringify(lockInfo, null, 2), {
+          flag: 'wx',
+          mode: 0o600
         });
         return; // Lock acquired
       } catch (error: any) {
@@ -127,6 +138,11 @@ export async function withFileLock<T>(
 
   const releaseLock = async () => {
     try {
+      // Check if lock file exists (might not exist in memory-only mode)
+      if (!(await fileExists(lockFile))) {
+        return; // No lock file to release
+      }
+      
       // Verify we still own the lock before releasing
       const lockContent = await fs.readFile(lockFile, 'utf8');
       const lockInfo: LockInfo = JSON.parse(lockContent);
@@ -147,6 +163,12 @@ export async function withFileLock<T>(
   // Enhanced cleanup with verification
   const cleanup = () => {
     try {
+      // Check if lock directory exists first
+      const lockDir = path.dirname(lockFile);
+      if (!existsSync(lockDir)) {
+        return; // No directory, no lock file to clean up
+      }
+      
       if (existsSync(lockFile)) {
         const lockContent = readFileSync(lockFile, 'utf8');
         const lockInfo: LockInfo = JSON.parse(lockContent);
@@ -166,8 +188,9 @@ export async function withFileLock<T>(
     process.exit();
   };
   
-  // Add listeners
-  process.once('exit', cleanup);
+  // Add listeners with proper cleanup
+  const exitListener = () => cleanup();
+  process.once('exit', exitListener);
   process.once('SIGINT', handleSignal);
   process.once('SIGTERM', handleSignal);
 
@@ -180,7 +203,7 @@ export async function withFileLock<T>(
     }
   } finally {
     // ALWAYS remove listeners, even if operation fails
-    process.removeListener('exit', cleanup);
+    process.removeListener('exit', exitListener);
     process.removeListener('SIGINT', handleSignal);
     process.removeListener('SIGTERM', handleSignal);
   }

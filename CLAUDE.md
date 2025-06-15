@@ -28,8 +28,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - `ProjectService` - Project lifecycle and completion tracking
    - `TaskService` - Task CRUD, hierarchy, and progress calculation
    - `MemoryService` - Memory storage and handoff generation
-   - `IntelligentTaskService` - AI-powered task analysis and optimization
-3. **Tool Layer** (`src/tools/`) - MCP tool definitions organized by category (17 tools total including 4 intelligent features)
+   - `DataIntegrityService` - Database validation and repair operations
+3. **Tool Layer** (`src/tools/`) - MCP tool definitions with 8 essential tools using research-backed prompts
 4. **Data Layer** - Split-file YAML database stored in `.memory-pickle/` directory
 
 ### Key Design Patterns

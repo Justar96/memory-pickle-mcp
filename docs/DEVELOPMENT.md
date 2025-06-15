@@ -10,12 +10,10 @@ memory-pickle-mcp/
 │   │   ├── ProjectService.ts # Project management
 │   │   ├── TaskService.ts    # Task operations
 │   │   ├── MemoryService.ts  # Memory & handoffs
-│   │   └── StorageService.ts # Database persistence
+│   │   ├── StorageService.ts # Database persistence
+│   │   └── DataIntegrityService.ts # Database validation
 │   ├── tools/                # MCP tool definitions
-│   │   ├── ProjectTools.ts   # Project management tools
-│   │   ├── TaskTools.ts      # Task management tools
-│   │   ├── MemoryTools.ts    # Memory tools
-│   │   └── UtilityTools.ts   # Export & template tools
+│   │   └── index.ts          # 8 essential tools with optimized prompts
 │   ├── types/                # TypeScript interfaces
 │   ├── utils/                # Utility functions
 │   └── config/               # Configuration & constants
@@ -59,14 +57,14 @@ The business logic is organized into services:
 - **TaskService**: Task CRUD, hierarchy, progress calculation
 - **MemoryService**: Memory storage, handoff generation
 - **StorageService**: Database persistence with atomic operations
+- **DataIntegrityService**: Database validation and repair operations
 
 ### Tool Layer
-MCP tools are organized by category:
+MCP tools are consolidated into a single optimized file:
 
-- **ProjectTools**: 4 tools for project management
-- **TaskTools**: 4 tools for task operations
-- **MemoryTools**: 2 tools for memory management
-- **UtilityTools**: 3 tools for export and templates
+- **8 Essential Tools**: Streamlined with research-backed prompts for better agent recognition
+- **Consistent Format**: Natural language descriptions without XML formatting
+- **Clear Purpose**: Each tool has a single, well-defined responsibility
 
 ### Data Storage
 Split-file YAML database:

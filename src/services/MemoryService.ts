@@ -1,4 +1,4 @@
-import type { Memory, MemoryTemplate, HandoffSummary, Task, Project } from '../types/index.js';
+import type { Memory, HandoffSummary, Task, Project } from '../types/index.js';
 import { generateId } from '../utils/idGenerator.js';
 
 /**
@@ -121,7 +121,6 @@ ${memory.content}`;
     project: Project,
     tasks: Task[],
     sessionCount: number,
-    format: 'detailed' | 'compact' = 'detailed',
     sessionStartTime?: Date
   ): HandoffSummary {
     // Get tasks completed in current session (default to last 2 hours if no session start time)
@@ -234,81 +233,5 @@ ${memory.content}`;
     return result;
   }
 
-  /**
-   * Applies a template and formats the output
-   */
-  applyTemplate(templates: { [key: string]: MemoryTemplate }, templateName: string): string {
-    if (!templateName) {
-      throw new Error('Template name is required');
-    }
 
-    const template = templates[templateName];
-    if (!template) {
-      const availableTemplates = Object.keys(templates).join(', ');
-      throw new Error(`Template "${templateName}" not found. Available: ${availableTemplates}`);
-    }
-
-    let result = `📋 **Template: ${templateName}**\n**Category:** ${template.category}\n\n`;
-    
-    template.structure.forEach((step: { step: string; prompt: string }, index: number) => {
-      result += `**${index + 1}. ${step.step}**\n${step.prompt}\n\n`;
-    });
-
-    result += `\n💡 **Next Steps:**
-1. Answer each prompt above
-2. Create tasks based on your answers
-3. Use \`create_task\` for each action item`;
-
-    return result;
-  }
-
-  /**
-   * Exports memories to markdown format
-   */
-  exportMemoriesToMarkdown(memories: Memory[]): string {
-    if (memories.length === 0) {
-      return '';
-    }
-
-    let markdown = `## Memories\n\n`;
-    
-    memories.forEach(memory => {
-      markdown += `### ${memory.title}\n`;
-      markdown += `**Category:** ${memory.category} | **Importance:** ${memory.importance}\n`;
-      markdown += `**Tags:** ${memory.tags.join(', ')}\n\n`;
-      markdown += `${memory.content}\n\n`;
-      markdown += `---\n\n`;
-    });
-
-    return markdown;
-  }
-
-  /**
-   * Generates project management overview
-   */
-  generateOverview(
-    projects: Project[],
-    tasks: Task[],
-    memories: Memory[],
-    sessionCount: number,
-    templates: { [key: string]: MemoryTemplate }
-  ): string {
-    let result = `📊 **Project Management Overview**\n\n`;
-    
-    // Show project stats
-    result += `**Active Projects:** ${projects.length}\n`;
-    result += `**Total Tasks:** ${tasks.length}\n`;
-    result += `**Completed Tasks:** ${tasks.filter(t => t.completed).length}\n`;
-    result += `**Session Count:** ${sessionCount}\n\n`;
-
-    // Show available templates
-    result += `**Available Templates:**\n`;
-    Object.keys(templates).forEach(template => {
-      result += `- ${template}\n`;
-    });
-
-    result += `\n💡 Use \`get_project_status\` to see your current tasks.`;
-
-    return result;
-  }
 }

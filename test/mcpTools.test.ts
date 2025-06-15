@@ -54,12 +54,12 @@ describe('MCP Tools Integration', () => {
       ALL_TOOLS.forEach(tool => {
         // Ensure descriptions don't contain XML tags
         expect(tool.description).not.toMatch(/<[^>]+>/);
-        
-        // Ensure descriptions contain priority indicators
-        expect(tool.description).toMatch(/^(CRITICAL|HIGH|MEDIUM|LOW)/);
-        
+
         // Ensure descriptions are concise (under 500 characters)
         expect(tool.description.length).toBeLessThan(500);
+
+        // Ensure descriptions are clear and action-oriented
+        expect(tool.description.trim().length).toBeGreaterThan(10);
       });
     });
 
