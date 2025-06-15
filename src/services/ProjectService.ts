@@ -1,6 +1,5 @@
 import type { Project, Task, ProjectSummary } from '../types/index.js';
 import { generateId } from '../utils/idGenerator.js';
-import { EMOJIS } from '../utils/emojiUtils.js';
 
 /**
  * Service responsible for project management operations
@@ -120,10 +119,10 @@ export class ProjectService {
    */
   formatAllProjectsOverview(projects: Project[], tasks: Task[]): string {
     if (projects.length === 0) {
-      return `${EMOJIS.TASK_LIST} No projects found. Use \`create_project\` to start a new project.`;
+      return `[INFO] No projects found. Use \`create_project\` to start a new project.`;
     }
 
-    let result = `# ${EMOJIS.PROJECT_STATUS} All Projects Overview\n\n`;
+    let result = `# All Projects Overview\n\n`;
     
     projects.forEach(project => {
       const projectTasks = tasks.filter(t => t.project_id === project.id);

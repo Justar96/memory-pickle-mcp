@@ -18,10 +18,10 @@ import type { MemoryPickleCore } from '../core/MemoryPickleCore.js';
 export function setupRequestHandlers(server: Server, core: MemoryPickleCore): void {
   // Tool handling
   setupToolHandlers(server, core);
-  
+
   // Resource handling
   setupResourceHandlers(server);
-  
+
   // Template handling
   setupTemplateHandlers(server);
 }
@@ -41,12 +41,12 @@ function setupToolHandlers(server: Server, core: MemoryPickleCore): void {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
-    // Simplified whitelist of core methods (8 tools)
+    // Simplified whitelist of core methods (9 tools including handoff alias)
     const allowedMethods = [
       'get_project_status', 'create_project', 'set_current_project',
       'create_task', 'update_task',
       'remember_this', 'recall_context',
-      'generate_handoff_summary'
+      'generate_handoff_summary', 'handoff'
     ];
 
     if (!allowedMethods.includes(name)) {

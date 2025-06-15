@@ -1,167 +1,90 @@
-# Memory Pickle MCP 🥒
+# Memory Pickle MCP
 
-A Model Context Protocol server that gives AI agents persistent memory for project management. Your agent remembers what you're working on between chat sessions.
+Project management and session memory for AI agents. Provides 9 MCP tools for tracking projects, tasks, and context during chat sessions.
 
-## 🚀 Quick Start
-
-Add this to your MCP configuration:
+## Quick Start
 
 ```json
 {
   "mcpServers": {
     "memory-pickle": {
       "command": "npx",
-      "args": ["-y", "@cabbages/memory-pickle-mcp"],
-      "env": {
-        "MEMORY_PICKLE_WORKSPACE": "/path/to/your/project"
-      }
+      "args": ["-y", "@cabbages/memory-pickle-mcp"]
     }
   }
 }
 ```
 
-That's it! Your agent will now:
-- Check your project root directory
-- Create `.memory-pickle/` folder in your project (not IDE root)
-- Remember your projects and tasks across sessions
+## Links
 
-## 🔗 Links
+- **Website:** [pickle.cabbages.work](https://pickle.cabbages.work)
+- **GitHub:** [Justar96/memory-pickle-mcp](https://github.com/Justar96/memory-pickle-mcp)
+- **NPM:** [@cabbages/memory-pickle-mcp](https://www.npmjs.com/package/@cabbages/memory-pickle-mcp)
 
-- **🌐 Website:** [pickle.cabbages.work](https://pickle.cabbages.work)
-- **📦 GitHub:** [Justar96/memory-pickle-mcp](https://github.com/Justar96/memory-pickle-mcp)
-- **📋 NPM Package:** [@cabbages/memory-pickle-mcp](https://www.npmjs.com/package/@cabbages/memory-pickle-mcp)
+## How Memory Works
 
-## 🎯 What It Does
+**Memory-Only Storage**
+- All data exists only during the current chat session
+- Nothing saved to disk - no files created
+- Data is lost when the session ends
+- Fast performance with no file system dependencies
 
-- **🧠 Remembers your work** - Agent loads your current project when you start chatting
-- **📋 Tracks tasks automatically** - Creates tasks when you mention things to do
-- **📊 Shows progress** - See what's done and what's left with completion percentages
-- **🤝 Handles handoffs** - Get summaries to continue work in new chats
-- **🏗️ Hierarchical tasks** - Support for subtasks and nested organization
-- **⚡ Priority levels** - Critical, High, Medium, Low task prioritization
-- **🚨 Blocker tracking** - Document and track what's preventing progress
+**Session Continuity**
+- During a session: All tools share the same data and current project context
+- Between sessions: Use `generate_handoff_summary` before ending, save as markdown, reference in new sessions
+- For permanent storage: Create your own markdown files for important information
 
-## 💡 How It Works
+## Tools
 
-The agent automatically:
-1. **Loads project status** at the start of each session via `get_project_status`
-2. **Creates tasks** when you mention work items using `create_task`
-3. **Updates tasks** when you report progress or completion with `update_task`
-4. **Tracks progress** and shows completion percentages
-5. **Generates handoff summaries** for seamless session transitions
+**Project Management**
+- `create_project` - Create new project (becomes current)
+- `set_current_project` - Switch between projects
+- `get_project_status` - View project and task summary
 
-No special commands needed - just talk naturally about your work.
+**Task Management**
+- `create_task` - Add task to current project
+- `update_task` - Update progress, completion, notes
 
-## 📖 Example Usage
+**Memory System**
+- `remember_this` - Store important information
+- `recall_context` - Search stored memories
 
-**Starting a project:**
-```
-You: "I'm building a todo app with React"
-Agent: I'll track this project for you.
-✅ Created project: Todo App
-📋 Added initial tasks based on your description
-```
+**Session Management**
+- `generate_handoff_summary` - Create transition summary
+- `handoff` - Quick alias for generate_handoff_summary
 
-**Continuing work:**
-```
-You: "Hi, let's continue"
-Agent: [Automatically loads via get_project_status]
-📊 Todo App Project - 40% complete
-✅ Set up React project
-⬜ Create task component  
-⬜ Add database integration
-```
+## Storage Details
 
-**Making progress:**
-```
-You: "I finished the task component"
-Agent: Great! Updating that task as complete.
-✅ Task component - Done!
-📈 Project is now 67% complete.
-```
+**Memory-Only Storage**
+- All data stored in memory during the session
+- No files or directories created
+- Data automatically cleared when session ends
+- No setup or cleanup required
 
-## 🛠️ Available Tools
+**For Permanent Storage**
+- Create your own markdown files for important information
+- Use `generate_handoff_summary` to create session summaries
+- Save summaries as markdown files for future reference
 
-The agent has access to **8 essential tools** for streamlined project management:
+## Configuration
 
-### 📊 **Core Tools**
-1. **`get_project_status`** - Show current project status and tasks ⭐ *Auto-loads at session start*
-2. **`create_project`** - Create new projects (automatically becomes current project)
-3. **`create_task`** - Add tasks with auto-priority detection
-4. **`update_task`** - Handle all task updates: completion, progress, notes, blockers
-5. **`remember_this`** - Store important decisions and context
-6. **`recall_context`** - Search and retrieve stored memories
-7. **`generate_handoff_summary`** - Create session handoff summaries
-8. **`set_current_project`** - Switch between multiple projects
-
-### 🎯 **Simplified Design**
-- **One tool per function** - No redundancy or overlap
-- **Smart defaults** - Tools work together automatically
-- **Agent-friendly** - Clear, focused functionality
-- **Essential only** - Removed rarely-used utilities and diagnostics
-
-## 💾 Data Storage
-
-Memory Pickle MCP operates in two modes based on whether a `.memory-pickle` directory exists:
-
-### **🧠 Memory-Only Mode (Default)**
-- **When**: No `.memory-pickle` directory exists
-- **Behavior**: All tools work normally, but data is lost when session ends
-- **Use case**: Temporary work, testing, or when you don't want files created
-
-### **💾 Persistent Mode**
-- **When**: `.memory-pickle` directory exists in your workspace
-- **Behavior**: Data is saved to disk and persists between sessions
-- **Files created**:
-  - `projects.yaml` - Your projects and metadata
-  - `tasks.yaml` - All tasks with hierarchy and progress
-  - `memories.yaml` - Important notes and decisions
-  - `meta.yaml` - Session tracking, settings, and templates
-
-### **🎯 Quick Setup**
-
-```bash
-# For persistent storage (recommended for real projects)
-mkdir .memory-pickle
-
-# For memory-only mode (temporary work)
-# Don't create any directory
+```json
+{
+  "mcpServers": {
+    "memory-pickle": {
+      "command": "npx",
+      "args": ["-y", "@cabbages/memory-pickle-mcp"]
+    }
+  }
+}
 ```
 
-**📖 For detailed storage behavior, limitations, and troubleshooting, see [STORAGE-MODES.md](STORAGE-MODES.md)**
+## Requirements
 
-### 🔄 Session Reset
+- Node.js 16+
+- MCP-compatible client (Claude Desktop, Cursor, etc.)
 
-```bash
-# Complete reset - removes all projects, tasks, and memories
-rm -rf .memory-pickle
-
-# On Windows
-rmdir /s .memory-pickle
-```
-
-This gives you a completely clean slate. The folder will be recreated automatically when you start a new session. This is the recommended approach when:
-- You want to start over completely
-- Data seems corrupted or inconsistent
-- You're switching to a different project context
-- Testing or development purposes
-
-**⚠️ Warning**: This permanently deletes all your project data. Create a handoff summary first using `generate_handoff_summary` if needed.
-
-## 📚 Documentation
-
-- **[📥 Installation Guide](docs/INSTALLATION.md)** - Setup instructions and troubleshooting
-- **[🛠️ Tools Reference](docs/TOOLS.md)** - Complete tool documentation with examples
-- **[📖 Usage Guide](docs/USAGE.md)** - Workflows, patterns, and best practices
-- **[⚙️ Development Guide](docs/DEVELOPMENT.md)** - Contributing and architecture details
-- **[📝 Changelog](docs/CHANGELOG.md)** - Version history and release notes
-
-## 🔧 Requirements
-
-- **Node.js 16+** - Runtime environment
-- **MCP-compatible client** - Claude Desktop, Cursor, Windsurf, etc.
-
-## 📦 Installation Methods
+## Installation
 
 **NPX (recommended):**
 ```bash
@@ -173,150 +96,57 @@ npx -y @cabbages/memory-pickle-mcp
 npm install -g @cabbages/memory-pickle-mcp
 ```
 
-**Local development:**
-```bash
-git clone https://github.com/Justar96/memory-pickle-mcp.git
-cd memory-pickle-mcp
-npm install
-npm run build
-```
+## Documentation
 
-## ⚙️ Configuration Examples
+- [Installation Guide](docs/INSTALLATION.md) - Setup and troubleshooting
+- [Tools Reference](docs/TOOLS.md) - Complete tool documentation
+- [Usage Guide](docs/USAGE.md) - Workflows and best practices
+- [Changelog](docs/CHANGELOG.md) - Version history
 
-**Basic setup:**
-```json
-{
-  "mcpServers": {
-    "memory-pickle": {
-      "command": "npx", 
-      "args": ["-y", "@cabbages/memory-pickle-mcp"]
-    }
-  }
-}
-```
+## Features
 
-**With workspace configuration (recommended):**
-```json
-{
-  "mcpServers": {
-    "memory-pickle": {
-      "command": "npx",
-      "args": ["-y", "@cabbages/memory-pickle-mcp"],
-      "env": {
-        "MEMORY_PICKLE_WORKSPACE": "/path/to/your/project",
-        "NODE_ENV": "production"
-      }
-    }
-  }
-}
-```
-
-**With emojis (optional):**
-```json
-{
-  "mcpServers": {
-    "memory-pickle": {
-      "command": "npx",
-      "args": ["-y", "@cabbages/memory-pickle-mcp"],
-      "env": {
-        "MEMORY_PICKLE_USE_EMOJIS": "true"
-      }
-    }
-  }
-}
-```
-
-**Global installation:**
-```json
-{
-  "mcpServers": {
-    "memory-pickle": {
-      "command": "memory-pickle"
-    }
-  }
-}
-```
-
-## 🎨 Features
-
-**Task Management:**
+**Task Management**
 - Hierarchical tasks with subtasks
-- Priority levels (critical/high/medium/low)  
+- Priority levels (critical/high/medium/low)
 - Progress tracking (0-100%)
 - Blocker documentation
-- Automatic completion detection
 
-**Project Organization:**
+**Project Organization**
 - Multiple concurrent projects
 - Automatic task assignment to current project
 - Project-level progress calculation
-- Status tracking (planning/in_progress/completed)
 
-**User Experience:**
-- **Professional Output**: Clean text mode by default for corporate environments
-- **Universal Compatibility**: Works in any terminal, SSH, or restricted environment
-- **Optional Emojis**: Enable emoji mode if preferred with `MEMORY_PICKLE_USE_EMOJIS=true`
-- **Clean or Visual**: `[OK] Task completed!` vs `✅ Task completed!`
-
-**Session Continuity:**
-- Auto-loads project status at session start
-- Generates handoff summaries for new chats
-- Preserves context between sessions
-- Session counter tracking
-- Easy reset via `.memory-pickle` folder deletion
-
-**Memory System:**
-- Categorized memory storage (general/technical/business)
+**Memory System**
+- Categorized memory storage
 - Importance levels (low/medium/high/critical)
-- Tag-based organization
 - Search and retrieval functionality
 
-**Data Integrity:**
-- Automatic validation on startup
-- Clean YAML-based storage format
-- Referential integrity between projects and tasks
-- Simple file-based architecture for reliability
+**Session Continuity**
+- Generates handoff summaries for session transitions
+- Recommend saving summaries as markdown files
+- Clean text output for universal compatibility
 
-## 🤔 Why Use This?
+## Troubleshooting
 
-AI agents forget everything between sessions. This tool fixes that by giving them persistent memory for project work. No more re-explaining what you're building or losing track of progress.
+**Data issues or agent confusion:**
+- Restart the MCP server for complete reset (data is memory-only)
+- See [Installation Guide](docs/INSTALLATION.md) for setup help
 
-It's designed to work invisibly - the agent just becomes better at remembering and tracking your work.
+**Tools not working:**
+- Update to latest version: `npx -y @cabbages/memory-pickle-mcp`
+- Verify MCP client configuration
+- Ensure Node.js 16+ is installed
 
-## � Troubleshooting
+## License
 
-**Agent seems confused or data looks wrong?**
-1. For a complete fresh start: delete the `.memory-pickle` folder
-2. Check the [Installation Guide](docs/INSTALLATION.md) for setup issues
-3. Verify the `MEMORY_PICKLE_WORKSPACE` environment variable points to your project
+Apache 2.0
 
-**Tools not working?**
-- Ensure you're using the latest version: `npx -y @cabbages/memory-pickle-mcp`
-- Verify your MCP client configuration matches the examples above
-- Check that Node.js 16+ is installed
+## Version
 
-**Performance issues?**
-- Large projects (1000+ tasks) may be slower
-- Consider creating handoff summaries to archive completed work
-- Reset sessions periodically by deleting `.memory-pickle`
+Current: 1.3.1
 
-## �📄 License
-
-Apache 2.0 License - Use freely in your projects!
-
-## 📊 Version
-
-**Current:** 1.3.0 (Simplified & Streamlined)
-
-**Package:** [@cabbages/memory-pickle-mcp](https://www.npmjs.com/package/@cabbages/memory-pickle-mcp)
-
-### Recent Updates (v1.3.0)
-- 🎯 **Simplified Tools**: Reduced from 17 to 8 essential tools
-- 🔄 **Consolidated Functions**: `update_task` handles completion, progress, and blockers
-- 🚀 **Auto-Current Project**: New projects automatically become current
-- 🧹 **Removed Redundancy**: Eliminated duplicate and rarely-used tools
-- 📝 **Streamlined Agent Instructions**: Clearer, simpler workflow rules
-
----
-
-*Built for developers who want their AI agents to actually remember what they're working on.* 🚀✨
+Recent changes:
+- Simplified to memory-only storage (no file persistence)
+- Clean text output only for universal compatibility
+- Added `handoff` alias for easier session transitions
+- Streamlined to 8 essential MCP tools + 1 alias

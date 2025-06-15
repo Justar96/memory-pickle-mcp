@@ -1,6 +1,5 @@
 import type { ProjectDatabase, Project, Task } from '../types/index.js';
 import { StorageService, ProjectService, TaskService, MemoryService } from '../services/index.js';
-import { EMOJIS } from '../utils/emojiUtils.js';
 
 /**
  * Core business logic for Memory Pickle MCP Server
@@ -106,7 +105,7 @@ export class MemoryPickleCore {
     return {
       content: [{
         type: "text",
-        text: `${EMOJIS.SUCCESS} **Project Created Successfully!**\n\n**Name:** ${result.name}\n**ID:** ${result.id}\n**Status:** ${result.status}\n**Description:** ${result.description || 'No description provided'}\n\n${EMOJIS.SUCCESS} **This project is now your current project.** You can add tasks using the \`create_task\` tool without specifying a project_id.\n\n${EMOJIS.INFO} **Note:** Data is stored in memory only. Consider creating markdown files to document your project progress for future reference.`
+        text: `[OK] **Project Created Successfully!**\n\n**Name:** ${result.name}\n**ID:** ${result.id}\n**Status:** ${result.status}\n**Description:** ${result.description || 'No description provided'}\n\n[OK] **This project is now your current project.** You can add tasks using the \`create_task\` tool without specifying a project_id.\n\n[INFO] **Note:** Data is stored in memory only. Consider creating markdown files to document your project progress for future reference.`
       }]
     };
   }
@@ -135,7 +134,7 @@ export class MemoryPickleCore {
     const activeTasks = projectTasks.filter(task => !task.completed);
 
     // Calculate actual completion percentage
-    const actualCompletion = projectTasks.length > 0 
+    const actualCompletion = projectTasks.length > 0
       ? Math.round((completedTasks.length / projectTasks.length) * 100)
       : 0;
 
@@ -155,19 +154,19 @@ export class MemoryPickleCore {
       project.completion_percentage = actualCompletion;
     }
 
-    let statusText = `# ${EMOJIS.PROJECT} Project Status: **${project.name}**\n\n`;
+    let statusText = `# Project Status: **${project.name}**\n\n`;
     statusText += `**ID:** ${project.id}\n`;
     statusText += `**Status:** ${project.status}\n`;
     statusText += `**Completion:** ${project.completion_percentage}%\n`;
     statusText += `**Description:** ${project.description || 'No description'}\n\n`;
 
-    statusText += `## ${EMOJIS.TASK} Tasks Summary\n`;
+    statusText += `## Tasks Summary\n`;
     statusText += `- **Total Tasks:** ${projectTasks.length}\n`;
     statusText += `- **Completed:** ${completedTasks.length}\n`;
     statusText += `- **Active:** ${activeTasks.length}\n\n`;
 
     if (activeTasks.length > 0) {
-      statusText += `### ${EMOJIS.ACTIVE} Active Tasks:\n`;
+      statusText += `### Active Tasks:\n`;
       activeTasks.slice(0, 5).forEach(task => {
         statusText += `- **${task.title}** (${task.priority} priority)\n`;
       });
@@ -194,12 +193,12 @@ export class MemoryPickleCore {
       return {
         content: [{
           type: "text",
-          text: `${EMOJIS.INFO} **No Projects Found**\n\nYou haven't created any projects yet. Use the \`create_project\` tool to get started!`
+          text: `[INFO] **No Projects Found**\n\nYou haven't created any projects yet. Use the \`create_project\` tool to get started!`
         }]
       };
     }
 
-    let statusText = `${EMOJIS.INFO} **All Projects Overview**\n\n`;
+    let statusText = `[INFO] **All Projects Overview**\n\n`;
 
     projects.forEach(project => {
       const projectTasks = this.database.tasks.filter(task => task.project_id === project.id);
@@ -260,7 +259,7 @@ export class MemoryPickleCore {
     return {
       content: [{
         type: "text",
-        text: `${EMOJIS.SUCCESS} **Project Updated Successfully!**\n\n**Name:** ${result.name}\n**Status:** ${result.status}\n**Description:** ${result.description || 'No description'}`
+        text: `[OK] **Project Updated Successfully!**\n\n**Name:** ${result.name}\n**Status:** ${result.status}\n**Description:** ${result.description || 'No description'}`
       }]
     };
   }
@@ -329,7 +328,7 @@ export class MemoryPickleCore {
     return {
       content: [{
         type: "text",
-        text: `${EMOJIS.SUCCESS} **Task Created Successfully!**\n\n**Title:** ${result.title}\n**ID:** ${result.id}\n**Project:** ${project?.name}\n**Priority:** ${result.priority}\n**Description:** ${result.description || 'No description provided'}\n\nTask is ready to be worked on!`
+        text: `[OK] **Task Created Successfully!**\n\n**Title:** ${result.title}\n**ID:** ${result.id}\n**Project:** ${project?.name}\n**Priority:** ${result.priority}\n**Description:** ${result.description || 'No description provided'}\n\nTask is ready to be worked on!`
       }]
     };
   }
@@ -405,9 +404,9 @@ export class MemoryPickleCore {
     this.database = await this.storageService.loadDatabase();
     this.buildTaskIndex();
 
-    let response = `${EMOJIS.SUCCESS} **Task Updated Successfully!**\n\n**${result.title}**\n`;
+    let response = `[OK] **Task Updated Successfully!**\n\n**${result.title}**\n`;
     if (completed !== undefined) {
-      response += `Status: ${result.completed ? `Completed ${EMOJIS.COMPLETED}` : `Active ${EMOJIS.ACTIVE}`}\n`;
+      response += `Status: ${result.completed ? 'Completed [DONE]' : 'Active [ACTIVE]'}\n`;
     }
     if (priority !== undefined) {
       response += `Priority: ${result.priority}\n`;
@@ -468,13 +467,13 @@ export class MemoryPickleCore {
     let markdownSuggestion = '';
     if (result.importance === 'critical' || result.importance === 'high') {
       const filename = result.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.md';
-      markdownSuggestion = `\n\n${EMOJIS.INFO} **Suggestion:** Since this is ${result.importance} importance, consider creating a markdown file:\n\`\`\`markdown\n# ${result.title}\n\n${result.content}\n\n*Created: ${new Date().toLocaleDateString()}*\n*Importance: ${result.importance}*\n\`\`\`\n\nSave as: \`${filename}\``;
+      markdownSuggestion = `\n\n[INFO] **Suggestion:** Since this is ${result.importance} importance, consider creating a markdown file:\n\`\`\`markdown\n# ${result.title}\n\n${result.content}\n\n*Created: ${new Date().toLocaleDateString()}*\n*Importance: ${result.importance}*\n\`\`\`\n\nSave as: \`${filename}\``;
     }
 
     return {
       content: [{
         type: "text",
-        text: `${EMOJIS.SUCCESS} **Memory Saved!**\n\n**Title:** ${result.title}\n**Importance:** ${result.importance}\n**Content:** ${result.content.substring(0, 100)}${result.content.length > 100 ? '...' : ''}${markdownSuggestion}`
+        text: `[OK] **Memory Saved!**\n\n**Title:** ${result.title}\n**Importance:** ${result.importance}\n**Content:** ${result.content.substring(0, 100)}${result.content.length > 100 ? '...' : ''}${markdownSuggestion}`
       }]
     };
   }
@@ -510,12 +509,12 @@ export class MemoryPickleCore {
       return {
         content: [{
           type: "text",
-          text: `${EMOJIS.INFO} **No Memories Found**\n\nNo memories match your search criteria.`
+          text: `[INFO] **No Memories Found**\n\nNo memories match your search criteria.`
         }]
       };
     }
 
-    let response = `# ${EMOJIS.MEMORY} Recalled Memories\n\n`;
+    let response = `# Recalled Memories\n\n`;
 
     memories.forEach((memory, index) => {
       response += `## ${index + 1}. ${memory.title}\n`;
@@ -611,6 +610,13 @@ export class MemoryPickleCore {
     };
   }
 
+  /**
+   * Alias for generate_handoff_summary - shorter and more intuitive
+   */
+  async handoff(args: any = {}): Promise<any> {
+    return this.generate_handoff_summary(args);
+  }
+
   async set_current_project(args: any): Promise<any> {
     const { project_id } = args;
 
@@ -649,7 +655,7 @@ export class MemoryPickleCore {
     return {
       content: [{
         type: "text",
-        text: `${EMOJIS.SUCCESS} Current project set to: **${result.name}**\n\nAll new tasks will be added to this project by default.`
+        text: `[OK] Current project set to: **${result.name}**\n\nAll new tasks will be added to this project by default.`
       }]
     };
   }

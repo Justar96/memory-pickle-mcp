@@ -5,12 +5,12 @@
  *
  * A simplified project management system that provides:
  * - Project and task management with clear organization
- * - Persistent memory storage for context and notes
+ * - in-memory storage for context and notes
  * - Session handoff capabilities for continuity
  * - Split-file YAML database for better organization
  *
  * Features:
- * - 8 essential MCP tools with research-backed prompts
+ * - 9 essential MCP tools with research-backed prompts
  * - Atomic file operations with proper locking
  * - Automatic task priority detection
  * - Session tracking and handoff summaries

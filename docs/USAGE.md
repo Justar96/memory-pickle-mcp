@@ -211,11 +211,11 @@ The key is to work naturally - Memory Pickle adapts to how you already talk abou
 
 ## Configuration Options
 
-### Clean Text vs Emoji Output
+### Clean Text Output
 
-Memory Pickle defaults to professional clean text output:
+Memory Pickle uses professional clean text output:
 
-**Default (Clean Text):**
+**Output Format:**
 ```
 [OK] Task completed successfully!
 ## Project Status: My App (75% complete)
@@ -224,35 +224,10 @@ Memory Pickle defaults to professional clean text output:
 ## Blocked: SSL certificate needed
 ```
 
-**Optional Emoji Mode:**
-```
-✅ Task completed successfully!
-📊 Project Status: My App (75% complete)
-⬜ Build authentication system [high]
-✅ Set up database [medium]
-🚨 Blocked: SSL certificate needed
-```
-
-### Enabling Emoji Mode
-
-Add to your MCP configuration:
-```json
-{
-  "mcpServers": {
-    "memory-pickle": {
-      "command": "npx",
-      "args": ["-y", "@cabbages/memory-pickle-mcp"],
-      "env": {
-        "MEMORY_PICKLE_USE_EMOJIS": "true"
-      }
-    }
-  }
-}
-```
-
-**Clean Text Benefits:**
-- Professional appearance for corporate environments
+**Benefits:**
+- Professional appearance for all environments
 - Universal compatibility (terminal, SSH, etc.)
 - Better accessibility and screen reader support
 - Cleaner logs and automation output
 - No font or encoding dependencies
+- Consistent across all platforms and clients

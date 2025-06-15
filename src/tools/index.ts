@@ -194,12 +194,31 @@ const CORE_TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        project_id: { 
-          type: "string", 
-          description: "ID of the project to set as current active project" 
+        project_id: {
+          type: "string",
+          description: "ID of the project to set as current active project"
         }
       },
       required: ["project_id"]
+    }
+  },
+  {
+    name: "handoff",
+    description: "Quick alias for generate_handoff_summary. Create comprehensive session summary for seamless handoff between chats. Use when: session ending, user says 'handoff', 'goodbye', 'see you later', 'continue tomorrow', switching context, or after significant progress. Includes completed work, active tasks, blockers, and next steps in copy-paste ready format.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: {
+          type: "string",
+          description: "Generate summary for specific project only (shows all projects if not specified)"
+        },
+        format: {
+          type: "string",
+          enum: ["detailed", "compact"],
+          default: "detailed",
+          description: "Output format. 'detailed' includes all context, 'compact' for quick overview."
+        }
+      }
     }
   }
 ];
@@ -222,7 +241,8 @@ export const TOOL_NAMES = {
   RECALL_CONTEXT: 'recall_context',
   
   // Session Management
-  GENERATE_HANDOFF_SUMMARY: 'generate_handoff_summary'
+  GENERATE_HANDOFF_SUMMARY: 'generate_handoff_summary',
+  HANDOFF: 'handoff'
 } as const;
 
 // Type for tool names
@@ -233,13 +253,13 @@ export const TOOL_CATEGORIES = {
   PROJECT_MANAGEMENT: ['get_project_status', 'create_project', 'set_current_project'],
   TASK_MANAGEMENT: ['create_task', 'update_task'],
   MEMORY_CONTEXT: ['remember_this', 'recall_context'],
-  SESSION_MANAGEMENT: ['generate_handoff_summary']
+  SESSION_MANAGEMENT: ['generate_handoff_summary', 'handoff']
 } as const;
 
 // Priority levels for agent guidance
 export const TOOL_PRIORITIES = {
   CRITICAL: ['get_project_status', 'recall_context'],  // Always check context first
   HIGH: ['create_task', 'update_task', 'remember_this'],  // Core workflow tools
-  MEDIUM: ['create_project', 'generate_handoff_summary'],  // Important but less frequent
+  MEDIUM: ['create_project', 'generate_handoff_summary', 'handoff'],  // Important but less frequent
   LOW: ['set_current_project']  // Utility tools
 } as const;

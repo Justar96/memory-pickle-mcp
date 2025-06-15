@@ -92,7 +92,7 @@ describe('System Integration - Complete MCP Workflow Testing', () => {
       });
       
       expect(backendUpdate.content[0].text).toContain('Task Updated Successfully');
-      expect(backendUpdate.content[0].text).toContain('Completed ✅');
+      expect(backendUpdate.content[0].text).toContain('Completed [DONE]');
       
       // === PHASE 4: Memory and Context Management ===
       console.log('🧠 Testing memory and context management...');

@@ -27,7 +27,7 @@ describe('MCP Tools and RequestHandlers Integration', () => {
     it('should have all 8 MCP tools properly defined', async () => {
       expect(ALL_TOOLS).toBeDefined();
       expect(Array.isArray(ALL_TOOLS)).toBe(true);
-      expect(ALL_TOOLS.length).toBe(8); // All 8 MCP tools
+      expect(ALL_TOOLS.length).toBe(9); // All 8 MCP tools + handoff alias
 
       const expectedTools = [
         'get_project_status',
@@ -37,7 +37,8 @@ describe('MCP Tools and RequestHandlers Integration', () => {
         'update_task',
         'remember_this',
         'recall_context',
-        'generate_handoff_summary'
+        'generate_handoff_summary',
+        'handoff'
       ];
 
       const toolNames = ALL_TOOLS.map(tool => tool.name);
@@ -106,7 +107,8 @@ describe('MCP Tools and RequestHandlers Integration', () => {
         'update_task',
         'remember_this',
         'recall_context',
-        'generate_handoff_summary'
+        'generate_handoff_summary',
+        'handoff'
       ];
 
       expectedMethods.forEach(method => {

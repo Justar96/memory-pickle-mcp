@@ -166,11 +166,11 @@ export function getConfigFile(): string {
 // Server configuration
 export const SERVER_CONFIG = {
   name: "memory-pickle",
-  version: "1.1.1",
+  version: "1.3.1",
 } as const;
 
-// UI configuration - Default to clean text mode (no emojis)
-export const USE_EMOJIS = process.env.MEMORY_PICKLE_USE_EMOJIS === 'true';
+// UI configuration - Clean text mode only
+// Emoji support removed for simplicity and universal compatibility
 
 // YAML serialization options
 export const YAML_OPTIONS = {

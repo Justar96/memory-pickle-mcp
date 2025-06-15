@@ -121,7 +121,6 @@ For easier deployment across different environments:
 ### Environment Variables
 - `NODE_ENV`: Set to "production" for optimized performance
 - `MEMORY_PICKLE_WORKSPACE`: Explicit project directory (agent will create `.memory-pickle/` here)
-- `MEMORY_PICKLE_USE_EMOJIS`: Set to "true" to enable emoji output (default is clean text)
 
 ### Advanced Configuration
 ```json
@@ -132,31 +131,17 @@ For easier deployment across different environments:
       "args": ["-y", "@cabbages/memory-pickle-mcp"],
       "env": {
         "NODE_ENV": "production",
-        "MEMORY_PICKLE_WORKSPACE": "/path/to/your/project",
-        "MEMORY_PICKLE_USE_EMOJIS": "true"
+        "MEMORY_PICKLE_WORKSPACE": "/path/to/your/project"
       }
     }
   }
 }
 ```
 
-### Emoji Mode (Optional)
-For visual enhancement, enable emojis:
-```json
-{
-  "mcpServers": {
-    "memory-pickle": {
-      "command": "npx",
-      "args": ["-y", "@cabbages/memory-pickle-mcp"],
-      "env": {
-        "MEMORY_PICKLE_USE_EMOJIS": "true"
-      }
-    }
-  }
-}
-```
+### Output Format
+Memory Pickle uses clean text output for universal compatibility:
 
-**Default (Clean Text):**
+**Clean Text Output:**
 ```
 [OK] Project created successfully!
 ## Project Status: My Project
@@ -164,13 +149,11 @@ For visual enhancement, enable emojis:
 [DONE] Task 2 [medium]
 ```
 
-**With Emojis (Optional):**
-```
-✅ Project created successfully!
-📊 Project Status: My Project
-⬜ Task 1 [high]
-✅ Task 2 [medium]
-```
+**Benefits:**
+- Works in all environments (terminal, SSH, corporate networks)
+- Screen reader compatible
+- Clean logs and automation output
+- No font dependencies
 
 ## 🛠️ Available Tools (8 Essential Tools)
 
