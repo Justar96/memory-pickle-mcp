@@ -5,6 +5,58 @@ All notable changes to Memory Pickle MCP will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2025-06-15
+
+### Changed
+- **Simplified to clean text only**: Removed all emoji functionality for maximum simplicity and compatibility
+- **Removed emoji configuration**: No more environment variables or conditional formatting
+- **Streamlined codebase**: Eliminated emoji utility system and dual formatting logic
+- **Updated documentation**: All examples now show clean text output only
+
+### Benefits
+- **Universal compatibility**: Works perfectly in all environments without dependencies
+- **Simplified maintenance**: Single output format reduces complexity
+- **Professional appearance**: Clean, consistent text suitable for all contexts
+- **Better accessibility**: Screen reader friendly and logging compatible
+
+## [1.3.0] - 2025-06-14
+
+### 🎯 Major Simplification Release
+
+### Changed
+- **Simplified tool structure**: Reduced from 17 to 8 essential tools
+- **Consolidated functionality**: `update_task` now handles completion, progress, notes, and blockers
+- **Auto-current project**: New projects automatically become the current project
+- **Enhanced workspace detection**: Added `MEMORY_PICKLE_WORKSPACE` environment variable support
+
+### Removed
+- `toggle_task` → Consolidated into `update_task`
+- `update_task_progress` → Consolidated into `update_task`
+- `get_tasks` → Functionality covered by `get_project_status`
+- `export_to_markdown` → Replaced with `generate_handoff_summary`
+- `apply_template` → Removed (rarely used)
+- `list_categories` → Removed (redundant with `get_project_status`)
+- Data integrity tools (`validate_database`, `check_workflow_state`, `repair_orphaned_data`) → Removed for simplicity
+
+### Enhanced
+- **`update_task`**: Single tool for all task updates (completion, progress, notes, blockers)
+- **`create_project`**: Automatically sets new project as current
+- **`get_project_status`**: More comprehensive project overview
+- **Agent instructions**: Simplified and streamlined for better agent understanding
+
+### Documentation
+- Updated README.md to reflect 8-tool structure
+- Revised INTEGRATION-GUIDE.md with simplified examples
+- Updated agent-instructions-simplified.md
+- Enhanced TOOLS.md with consolidated functionality
+- Updated package.json to v1.3.0
+
+### Benefits
+- **Reduced complexity**: Easier for agents to understand and use
+- **Eliminated redundancy**: One tool per function, no overlap
+- **Better workflow**: Smoother project creation and task management
+- **Cleaner codebase**: Removed rarely-used utilities and diagnostics
+
 ## [1.1.0] - 2025-06-13
 
 ### Added

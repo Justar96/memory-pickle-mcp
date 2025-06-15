@@ -1,6 +1,44 @@
 import { jest } from '@jest/globals';
 import type { Task, Project, Memory, ProjectDatabase } from '../../src/types';
 import { projectDatabaseSchema } from '../../src/types/schemas';
+import { MemoryPickleCore } from '../../src/core/MemoryPickleCore';
+import { StorageService } from '../../src/services/StorageService';
+import { ProjectService } from '../../src/services/ProjectService';
+import { TaskService } from '../../src/services/TaskService';
+import { MemoryService } from '../../src/services/MemoryService';
+
+/**
+ * Test-specific storage service that works with in-memory data
+ * instead of reloading from the file system
+ */
+class TestStorageService extends StorageService {
+  private testDatabase: ProjectDatabase;
+
+  constructor(database: ProjectDatabase) {
+    super();
+    this.testDatabase = database;
+  }
+
+  async loadDatabase(): Promise<ProjectDatabase> {
+    // Return the test database instead of loading from file system
+    return this.testDatabase;
+  }
+
+  async runExclusive<T>(
+    operation: (db: ProjectDatabase) => Promise<{ result: T; commit: boolean; changedParts: Set<string> }>
+  ): Promise<T> {
+    // Run operation on test database directly
+    const result = await operation(this.testDatabase);
+
+    // Update the test database if commit is true
+    if (result.commit) {
+      // The operation already modified this.testDatabase directly
+      // No need to save to file system in tests
+    }
+
+    return result.result;
+  }
+}
 
 /**
  * Test data factories for creating consistent test objects
@@ -82,7 +120,285 @@ export class TestDataFactory {
 }
 
 /**
- * Mock MCP tool call helpers
+ * Test utilities for MemoryPickleCore integration testing
+ */
+export class MemoryPickleCoreTestUtils {
+  /**
+   * Creates a MemoryPickleCore instance with pre-populated test data
+   */
+  static async createWithTestData(
+    database: ProjectDatabase,
+    storageServicePath?: string
+  ): Promise<MemoryPickleCore> {
+    // Create test-specific storage service that doesn't reload from file system
+    const storageService = new TestStorageService(database);
+    const projectService = new ProjectService();
+    const taskService = new TaskService();
+    const memoryService = new MemoryService();
+
+    // Create MemoryPickleCore instance with test data
+    const core = new MemoryPickleCore(
+      storageService,
+      projectService,
+      taskService,
+      memoryService
+    );
+
+    return core;
+  }
+
+  /**
+   * Creates a MemoryPickleCore instance with realistic test scenario
+   */
+  static async createWithScenario(scenario: 'empty' | 'basic' | 'complex' = 'basic'): Promise<{
+    core: MemoryPickleCore;
+    testData: {
+      projects: Project[];
+      tasks: Task[];
+      memories: Memory[];
+    };
+  }> {
+    let database: ProjectDatabase;
+    let testData: { projects: Project[]; tasks: Task[]; memories: Memory[] };
+
+    switch (scenario) {
+      case 'empty':
+        database = TestDataFactory.createDatabase();
+        testData = { projects: [], tasks: [], memories: [] };
+        break;
+
+      case 'basic':
+        const project = TestDataFactory.createProject({ name: 'Test Project' });
+        const task1 = TestDataFactory.createTask({
+          project_id: project.id,
+          title: 'Test Task 1',
+          completed: true
+        });
+        const task2 = TestDataFactory.createTask({
+          project_id: project.id,
+          title: 'Test Task 2',
+          progress: 50
+        });
+        const memory = TestDataFactory.createMemory({
+          project_id: project.id,
+          title: 'Test Memory',
+          content: 'Test memory content'
+        });
+
+        database = TestDataFactory.createDatabase({
+          projects: [project],
+          tasks: [task1, task2],
+          memories: [memory],
+          meta: {
+            last_updated: new Date().toISOString(),
+            version: "2.0.0",
+            session_count: 1,
+            current_project_id: project.id
+          }
+        });
+        testData = { projects: [project], tasks: [task1, task2], memories: [memory] };
+        break;
+
+      case 'complex':
+        const projects = [
+          TestDataFactory.createProject({ name: 'Project A' }),
+          TestDataFactory.createProject({ name: 'Project B' })
+        ];
+        const tasks = [
+          TestDataFactory.createTask({ project_id: projects[0].id, title: 'Task A1', completed: true }),
+          TestDataFactory.createTask({ project_id: projects[0].id, title: 'Task A2', progress: 75 }),
+          TestDataFactory.createTask({ project_id: projects[1].id, title: 'Task B1', priority: 'critical' }),
+        ];
+        const memories = [
+          TestDataFactory.createMemory({ project_id: projects[0].id, title: 'Memory A' }),
+          TestDataFactory.createMemory({ project_id: projects[1].id, title: 'Memory B' }),
+        ];
+
+        database = TestDataFactory.createDatabase({
+          projects,
+          tasks,
+          memories
+        });
+        testData = { projects, tasks, memories };
+        break;
+    }
+
+    const core = await this.createWithTestData(database);
+    return { core, testData };
+  }
+}
+
+/**
+ * Real MCP tool testing infrastructure
+ */
+export class MCPToolTestUtils {
+  /**
+   * Test all 8 MCP tools with a MemoryPickleCore instance
+   */
+  static async testAllMCPTools(core: MemoryPickleCore): Promise<{
+    results: Record<string, any>;
+    errors: Record<string, Error>;
+    coverage: {
+      tested: string[];
+      missing: string[];
+      percentage: number;
+    };
+  }> {
+    const allTools = [
+      'get_project_status',
+      'create_project',
+      'set_current_project',
+      'create_task',
+      'update_task',
+      'remember_this',
+      'recall_context',
+      'generate_handoff_summary'
+    ];
+
+    const results: Record<string, any> = {};
+    const errors: Record<string, Error> = {};
+
+    // Test each tool
+    for (const toolName of allTools) {
+      try {
+        const result = await this.callMCPTool(core, toolName);
+        results[toolName] = result;
+      } catch (error) {
+        errors[toolName] = error as Error;
+      }
+    }
+
+    const tested = Object.keys(results);
+    const missing = Object.keys(errors);
+    const percentage = (tested.length / allTools.length) * 100;
+
+    return {
+      results,
+      errors,
+      coverage: {
+        tested,
+        missing,
+        percentage
+      }
+    };
+  }
+
+  /**
+   * Call an MCP tool method on MemoryPickleCore with realistic arguments
+   */
+  static async callMCPTool(core: MemoryPickleCore, toolName: string, args?: any): Promise<any> {
+    const defaultArgs = this.getDefaultArgsForTool(toolName);
+    const finalArgs = { ...defaultArgs, ...args };
+
+    // Call the actual MCP tool method
+    switch (toolName) {
+      case 'get_project_status':
+        return await core.get_project_status(finalArgs);
+      case 'create_project':
+        return await core.create_project(finalArgs);
+      case 'set_current_project':
+        return await core.set_current_project(finalArgs);
+      case 'create_task':
+        return await core.create_task(finalArgs);
+      case 'update_task':
+        return await core.update_task(finalArgs);
+      case 'remember_this':
+        return await core.remember_this(finalArgs);
+      case 'recall_context':
+        return await core.recall_context(finalArgs);
+      case 'generate_handoff_summary':
+        return await core.generate_handoff_summary(finalArgs);
+      default:
+        throw new Error(`Unknown MCP tool: ${toolName}`);
+    }
+  }
+
+  /**
+   * Get realistic default arguments for each MCP tool
+   */
+  static getDefaultArgsForTool(toolName: string): any {
+    switch (toolName) {
+      case 'get_project_status':
+        return {}; // Will use current project if no project_id provided
+      case 'create_project':
+        return {
+          name: 'Test Project',
+          description: 'A test project for MCP tool testing'
+        };
+      case 'set_current_project':
+        return {
+          project_id: 'proj_test_123'
+        };
+      case 'create_task':
+        return {
+          title: 'Test Task',
+          description: 'A test task for MCP tool testing'
+          // Don't provide project_id - let it use current project
+        };
+      case 'update_task':
+        return {
+          task_id: 'task_test_123',
+          title: 'Updated Test Task',
+          progress: 50
+        };
+      case 'remember_this':
+        return {
+          content: 'This is a test memory for MCP tool testing',
+          title: 'Test Memory',
+          importance: 'medium'
+        };
+      case 'recall_context':
+        return {
+          query: 'test',
+          limit: 5
+        };
+      case 'generate_handoff_summary':
+        return {}; // Can work without project_id
+      default:
+        return {};
+    }
+  }
+
+  /**
+   * Validate MCP tool response format
+   */
+  static validateMCPResponse(response: any, toolName: string): {
+    isValid: boolean;
+    errors: string[];
+  } {
+    const errors: string[] = [];
+
+    // All MCP responses should have content array
+    if (!response.content || !Array.isArray(response.content)) {
+      errors.push('Response missing content array');
+    }
+
+    // Content should have at least one item
+    if (response.content && response.content.length === 0) {
+      errors.push('Response content array is empty');
+    }
+
+    // Each content item should have type and text
+    if (response.content) {
+      response.content.forEach((item: any, index: number) => {
+        if (!item.type) {
+          errors.push(`Content item ${index} missing type`);
+        }
+        if (item.type === 'text' && !item.text) {
+          errors.push(`Content item ${index} missing text`);
+        }
+      });
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }
+}
+
+/**
+ * Legacy mock helpers (keeping for backward compatibility)
  */
 export class MockMCPHelpers {
   static createMockToolCall(toolName: string, args: any = {}) {
@@ -123,7 +439,7 @@ export class TestAssertions {
   static expectProjectToBeValid(project: Project): void {
     expect(project.id).toMatch(/^proj_/);
     expect(project.name).toBeTruthy();
-    expect(['active', 'in_progress', 'completed', 'on_hold']).toContain(project.status);
+    expect(['planning', 'in_progress', 'blocked', 'completed', 'archived']).toContain(project.status);
     expect(typeof project.completion_percentage).toBe('number');
     expect(project.completion_percentage).toBeGreaterThanOrEqual(0);
     expect(project.completion_percentage).toBeLessThanOrEqual(100);

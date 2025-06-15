@@ -1,86 +1,131 @@
-# Memory Pickle Agent Instructions
+# Memory Pickle MCP - Agent Instructions
 
-## Core Behavior
+This file provides essential guidance for AI agents using Memory Pickle MCP for project management and session continuity.
 
-**CRITICAL: Always call `get_project_status` first at session start** - This ensures continuity between sessions.
+## Core Workflow Pattern
 
-## Tool Usage Patterns
+### Session Initialization
+1. **ALWAYS start with `get_project_status`** to load context and understand current state
+2. If no projects exist, guide user to create one with `create_project`
+3. If multiple projects exist, help user set current project with `set_current_project`
 
-### Session Start
-1. **ALWAYS** call `get_project_status` immediately
-2. Show current project state and pending tasks
-3. Continue from where the last session ended
+### Active Session Management
+1. **Auto-detect work items** from user conversation and create tasks with `create_task`
+2. **Track progress updates** when users report completions or progress with `update_task`
+3. **Store important decisions** and context with `remember_this`
+4. **Search previous context** when users reference past work with `recall_context`
 
-### Task Management
-- **Create tasks automatically** when user mentions any work item:
-  - "I need to..." → `create_task`
-  - "We should..." → `create_task` 
-  - "Let's..." → `create_task`
-  - Feature descriptions → `create_task`
-  - Problems to solve → `create_task`
+### Session Conclusion
+1. **Generate handoff summary** with `generate_handoff_summary` when session ends
+2. **Suggest saving summary** as markdown file for future reference
+3. **Provide clear next steps** for continuing work
 
-- **Mark tasks complete automatically** when user indicates completion:
-  - "I finished..." → `toggle_task`
-  - "It's done" → `toggle_task`
-  - "Completed..." → `toggle_task`
-  - "Ready" → `toggle_task`
+## Tool Usage Priorities
 
-- **Update progress** when user reports partial completion:
-  - "Halfway done" → `update_task_progress` (50%)
-  - "Almost finished" → `update_task_progress` (75%)
-  - "Just started" → `update_task_progress` (25%)
+### CRITICAL (Always Use First)
+- **`get_project_status`**: Load context at session start and when users ask about current state
+- **`recall_context`**: Search memories when users reference past decisions or work
 
-### Priority Assessment
-Auto-assess task priority based on keywords:
-- **Critical**: security, urgent, blocking, critical, emergency
-- **High**: important, deadline, core feature, must have
-- **Medium**: should, feature, improvement
-- **Low**: nice to have, maybe, consider, polish
+### HIGH (Core Workflow)
+- **`create_task`**: When users mention work items, goals, or things to accomplish
+- **`update_task`**: When users report progress, completions, or blockers
+- **`remember_this`**: For important decisions, requirements, or context that should persist
 
-### Project Management
-- **New projects**: When user mentions "project", "build", "create" → `create_project`
-- **Project switching**: "Let's work on [project]" → `set_current_project`
-- **Session handoff**: End of conversation → `generate_handoff_summary`
+### MEDIUM (Support Functions)
+- **`create_project`**: When users start new projects or initiatives
+- **`generate_handoff_summary`**: For session transitions and continuity
+- **`set_current_project`**: When switching between multiple projects
 
-### Memory Management
-- **Remember important info**: Architecture decisions, requirements, constraints → `remember_this`
-- **Recall context**: Need historical information → `recall_context`
+## Natural Language Triggers
 
-### Planning & Organization
-- **Structured planning**: "sprint", "planning", "checklist" → `apply_template`
-- **Documentation**: "export", "save", "document" → `export_to_markdown`
+### Task Creation Triggers
+Listen for: "need to", "should", "must", "have to", "let's", "implement", "fix", "add", "create", "build", "write", "design"
 
-## Key Principles
+### Progress Update Triggers
+Listen for: "finished", "completed", "done with", "made progress", "working on", "stuck on", "blocked by", percentage mentions ("50% done")
 
-1. **Everything is a Task**: Convert all action items into trackable tasks
-2. **Progress Visibility**: Always show completion percentage and what's left
-3. **Seamless Continuity**: New sessions pick up exactly where last one ended
-4. **Automatic Tracking**: Track progress without user having to ask
-5. **Proactive Behavior**: Don't wait for permission - create tasks and track completion automatically
+### Memory Storage Triggers
+Listen for: "remember", "important", "note that", "for reference", "don't forget", "key point", "decision"
 
-## Error Handling
+### Status Check Triggers
+Listen for: "what am I working on", "show status", "where are we", "current progress", "what's next"
 
-- **No project exists**: Prompt to create a project first
-- **Task not found**: Show available tasks with IDs
-- **Ambiguous reference**: Ask for clarification with task list
+## Priority Detection
 
-## Session End Protocol
+### Automatic Priority Mapping
+- **Critical**: "urgent", "critical", "blocking", "emergency", "asap", "immediately"
+- **High**: "important", "key", "core", "priority", "soon", "today"
+- **Medium**: Default priority when no urgency indicators present
+- **Low**: "nice to have", "maybe", "consider", "eventually", "someday"
 
-1. Generate comprehensive summary
-2. Include completed items, in-progress work, and blockers
-3. Highlight next priorities
-4. Provide copy-paste ready summary for next session
+## Storage Model
 
-## Examples
+### Memory-Only Architecture
+- All data exists only during the current session
+- No files are created automatically
+- Data is lost when session ends
 
-**User**: "I want to build an e-commerce website"
-**Agent**: [calls `create_project`] → [suggests initial tasks]
+### Persistence Recommendations
+- For critical information, suggest creating markdown files manually
+- Use `generate_handoff_summary` to create session continuity documents
+- Recommend users save important decisions in their own documentation
 
-**User**: "I finished the login page"
-**Agent**: [calls `toggle_task` for login-related task] → [shows updated progress]
+## Error Handling Guidelines
 
-**User**: "I'm halfway done with the API integration"
-**Agent**: [calls `update_task_progress` with 50%] → [updates parent task progress]
+### Common Scenarios
+1. **No current project set**: Guide user to create or select project first
+2. **Task not found**: Use fuzzy matching on task titles, suggest alternatives
+3. **Invalid project reference**: List available projects for user selection
+4. **Empty search results**: Suggest broader search terms or check spelling
 
-**User**: "We decided to use PostgreSQL for better performance"
-**Agent**: [calls `remember_this` to store architecture decision]
+### Error Response Pattern
+Always use format: `[ERROR] {specific_issue}: {user_friendly_explanation}. SUGGESTION: {corrective_action}`
+
+## Context Management
+
+### State Awareness
+- Always maintain awareness of current project context
+- Reference previous session information when available
+- Use `recall_context` to find relevant background information
+
+### Multi-Project Handling
+- Clearly identify which project tasks belong to
+- Help users switch context when working on different projects
+- Maintain separation between project data
+
+## Best Practices
+
+### Proactive Behavior
+- Automatically suggest creating tasks when users describe work
+- Offer to remember important information shared during conversations
+- Suggest handoff summaries when sessions seem to be concluding
+
+### Clear Communication
+- Use consistent formatting: [OK], [ERROR], [INFO], [SUGGESTION] prefixes
+- Provide specific, actionable feedback
+- Confirm actions taken and their results
+
+### Workflow Optimization
+- Group related tasks under parent tasks when appropriate
+- Suggest breaking down large tasks into smaller subtasks
+- Recommend priority adjustments based on user urgency
+
+## Output Formatting
+
+### Standard Prefixes
+- `[OK]` - Successful operations
+- `[ERROR]` - Failed operations with specific error details
+- `[INFO]` - Neutral information or status updates
+- `[SUGGESTION]` - Recommendations for user actions
+- `[CURRENT]` - Current/active project indicators
+- `[BLOCKED]` - Blocked tasks or issues
+- `[DONE]` - Completed items
+- `[ACTIVE]` - In-progress items
+
+### Clean Text Only
+- No emojis or special characters
+- Universal compatibility across all environments
+- Professional appearance suitable for any context
+- Screen reader and accessibility friendly
+
+This simplified instruction set ensures consistent, effective agent behavior while maintaining the clean, professional standards expected by users.

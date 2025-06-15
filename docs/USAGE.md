@@ -106,6 +106,8 @@ Agent: I'll mark deployment as blocked.
 Blocked: Waiting for SSL certificate
 ```
 
+*Note: In v1.3.0, progress updates and blocker tracking are handled by the consolidated `update_task` tool.*
+
 ### Session Handoffs
 
 End sessions with summaries:
@@ -209,20 +211,11 @@ The key is to work naturally - Memory Pickle adapts to how you already talk abou
 
 ## Configuration Options
 
-### Emoji vs Clean Text
+### Clean Text Output
 
-Memory Pickle supports two output modes:
+Memory Pickle uses professional clean text output:
 
-**Default (Emojis):**
-```
-✅ Task completed successfully!
-📊 Project Status: My App (75% complete)
-⬜ Build authentication system [high]
-✅ Set up database [medium]
-🚨 Blocked: SSL certificate needed
-```
-
-**Clean Text Mode:**
+**Output Format:**
 ```
 [OK] Task completed successfully!
 ## Project Status: My App (75% complete)
@@ -231,26 +224,10 @@ Memory Pickle supports two output modes:
 ## Blocked: SSL certificate needed
 ```
 
-### Enabling Clean Text Mode
-
-Add to your MCP configuration:
-```json
-{
-  "mcpServers": {
-    "memory-pickle": {
-      "command": "npx",
-      "args": ["-y", "@cabbages/memory-pickle-mcp"],
-      "env": {
-        "MEMORY_PICKLE_NO_EMOJIS": "true"
-      }
-    }
-  }
-}
-```
-
-**When to Use Clean Text:**
-- Corporate/enterprise environments
-- Terminal-only access (SSH, etc.)
-- Personal preference for minimal output
-- Accessibility considerations
-- Logging/automation systems
+**Benefits:**
+- Professional appearance for all environments
+- Universal compatibility (terminal, SSH, etc.)
+- Better accessibility and screen reader support
+- Cleaner logs and automation output
+- No font or encoding dependencies
+- Consistent across all platforms and clients

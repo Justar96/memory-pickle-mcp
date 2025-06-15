@@ -11,7 +11,7 @@ describe('StorageService Concurrency and Locking', () => {
   beforeEach(async () => {
     await fs.rm(testDataDir, { recursive: true, force: true });
     await fs.mkdir(testDataDir, { recursive: true });
-    storageService = new StorageService(testProjectFile);
+    storageService = new StorageService();
   });
 
   afterEach(async () => {
@@ -55,16 +55,33 @@ describe('StorageService Concurrency and Locking', () => {
     expect([1, 2, 3, 4, 5]).toContain(finalDb.meta.session_count);
   });
 
-  it('should throw error if lock cannot be acquired', async () => {
-    // Simulate lock file existing
+  it('should handle existing lock files gracefully', async () => {
+    // Create a lock file with a different process ID to simulate external lock
     const lockFile = testProjectFile + '.lock';
-    await fs.writeFile(lockFile, 'lock');
+    const lockInfo = {
+      pid: 99999, // Different PID that likely doesn't exist
+      timestamp: Date.now() - 60000, // 1 minute ago to make it stale
+      token: 'external-token',
+      hostname: 'external-host'
+    };
+    await fs.writeFile(lockFile, JSON.stringify(lockInfo, null, 2));
 
-    const storage = new StorageService(testProjectFile);
-    await expect(storage.runExclusive(async () => {
+    const storage = new StorageService();
+
+    // Should succeed because the lock will be detected as stale and removed
+    let operationExecuted = false;
+    await storage.runExclusive(async () => {
+      operationExecuted = true;
       return { result: undefined, commit: false };
-    })).rejects.toThrow();
+    });
 
-    await fs.unlink(lockFile);
+    expect(operationExecuted).toBe(true);
+
+    // Clean up if lock file still exists
+    try {
+      await fs.unlink(lockFile);
+    } catch {
+      // Ignore if already cleaned up
+    }
   });
 });

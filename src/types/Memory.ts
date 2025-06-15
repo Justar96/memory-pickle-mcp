@@ -11,13 +11,3 @@ export interface Memory {
   project_id?: string; // Link to project if relevant
 }
 
-export interface MemoryTemplate {
-  category: string;
-  structure: TemplateStep[];
-  auto_trigger?: string[];
-}
-
-export interface TemplateStep {
-  step: string;
-  prompt: string;
-}

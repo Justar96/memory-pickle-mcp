@@ -1,6 +1,12 @@
-# Available Tools
+# Available Tools (v1.3.0)
 
-Memory Pickle MCP provides 13 tools for project management and memory storage. The agent uses these automatically - you don't need to call them directly.
+Memory Pickle MCP provides 8 essential tools for streamlined project management and memory storage. The agent uses these automatically - you don't need to call them directly.
+
+## Simplified Design
+- **One tool per function** - No redundancy or overlap
+- **Smart defaults** - Tools work together automatically
+- **Agent-friendly** - Clear, focused functionality
+- **Essential only** - Removed rarely-used utilities and diagnostics
 
 ## Project Management
 
@@ -22,7 +28,7 @@ Returns:
 - Critical priority items
 
 ### `create_project`
-Creates a new project container.
+Creates a new project container. **Automatically becomes the current project.**
 
 ```yaml
 name: "My New Project"
@@ -52,35 +58,18 @@ Adds a new task to the current project.
 title: "Implement feature X"
 description: "Detailed description"
 priority: "high"  # critical, high, medium, low
-parent_id: "task_123"  # Optional for subtasks
-due_date: "2024-12-31"  # Optional
+project_id: "proj_123"  # Optional - uses current project if not specified
 ```
 
-### `toggle_task`
-Marks task as complete/incomplete.
+### `update_task`
+**Consolidated tool** - handles completion, progress, notes, and blockers.
 
 ```yaml
 task_id: "task_123"
-```
-
-### `update_task_progress`
-Updates task progress and notes.
-
-```yaml
-task_id: "task_123"
-progress: 75  # 0-100
-notes: "Almost done"
-blockers: ["Waiting for approval"]  # Optional
-```
-
-### `get_tasks`
-Retrieves filtered task list.
-
-```yaml
-status: "incomplete"  # complete, incomplete
-priority: "high"  # critical, high, medium, low
-project_id: "proj_123"  # Optional
-parent_id: "task_456"  # Optional for subtasks
+completed: true  # Optional - mark complete/incomplete
+progress: 75  # Optional - 0-100 percentage
+notes: "Almost done"  # Optional - progress notes
+blockers: ["Waiting for approval"]  # Optional - list of blockers
 ```
 
 ## Memory Management
@@ -107,49 +96,49 @@ tags: ["frontend"]  # Optional filter
 limit: 10  # Default 10
 ```
 
-## Utilities
+## Session Management
 
-### `export_to_markdown`
-Exports project data to markdown file.
-
-```yaml
-output_file: "project-export.md"  # Default name
-include_tasks: true  # Include task data
-include_memories: true  # Include memory data
-```
-
-### `apply_template`
-Shows project planning template.
+### `generate_handoff_summary`
+Creates session transition summary for continuing work in new chats.
 
 ```yaml
-template_name: "web_app"  # Available templates
-context: {}  # Optional context data
+format: "detailed"  # or "compact"
 ```
 
-### `list_categories`
-Shows project overview and available templates.
+### `set_current_project`
+Switches to a different project when working on multiple things.
 
-No parameters required.
+```yaml
+project_id: "proj_123"
+```
 
-## Tool Priority Levels
+## Tool Usage Patterns
 
 **Critical (Auto-triggered):**
-- `get_project_status` - Session start
-- `recall_context` - Context searches
-- `create_task` - Task mentions
-- `toggle_task` - Completion mentions
+- `get_project_status` - Always called at session start
+- `create_task` - When user mentions work items
+- `update_task` - When user reports progress or completion
 
 **High (Frequently used):**
-- `update_task_progress` - Progress updates
-- `remember_this` - Important notes
-- `create_project` - New projects
-- `generate_handoff_summary` - Session ends
+- `remember_this` - Store important decisions and context
+- `recall_context` - Search previous memories and decisions
+- `generate_handoff_summary` - Create session transitions
 
 **Medium (As needed):**
-- `get_tasks` - Task filtering
-- `set_current_project` - Project switching
-- `export_to_markdown` - Documentation
+- `create_project` - Start new projects (auto-becomes current)
+- `set_current_project` - Switch between multiple projects
 
-**Low (Utility):**
-- `apply_template` - Planning help
-- `list_categories` - Overview
+## Summary of Changes in v1.3.0
+
+**Removed Tools:**
+- `toggle_task` → Consolidated into `update_task`
+- `update_task_progress` → Consolidated into `update_task`
+- `get_tasks` → Functionality covered by `get_project_status`
+- `export_to_markdown` → Replaced with `generate_handoff_summary`
+- `apply_template` → Removed (rarely used)
+- `list_categories` → Removed (redundant with `get_project_status`)
+
+**Enhanced Tools:**
+- `update_task` now handles completion, progress, notes, and blockers
+- `create_project` automatically sets as current project
+- `get_project_status` provides comprehensive project overview
