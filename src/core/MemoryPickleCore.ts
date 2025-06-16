@@ -1,5 +1,5 @@
 import type { ProjectDatabase, Project, Task } from '../types/index.js';
-import { StorageService, ProjectService, TaskService, MemoryService } from '../services/index.js';
+import { InMemoryStore, ProjectService, TaskService, MemoryService } from '../services/index.js';
 import { ValidationUtils } from '../utils/ValidationUtils.js';
 
 /**
@@ -8,7 +8,7 @@ import { ValidationUtils } from '../utils/ValidationUtils.js';
  * Implements defensive programming practices and comprehensive validation
  */
 export class MemoryPickleCore {
-  private storageService: StorageService;
+  private inMemoryStore: InMemoryStore;
   private projectService: ProjectService;
   private taskService: TaskService;
   private memoryService: MemoryService;
@@ -30,12 +30,12 @@ export class MemoryPickleCore {
   };
 
   constructor(
-    storageService: StorageService,
+    inMemoryStore: InMemoryStore,
     projectService: ProjectService,
     taskService: TaskService,
     memoryService: MemoryService
   ) {
-    this.storageService = storageService;
+    this.inMemoryStore = inMemoryStore;
     this.projectService = projectService;
     this.taskService = taskService;
     this.memoryService = memoryService;
@@ -55,31 +55,18 @@ export class MemoryPickleCore {
   }
 
   static async create(): Promise<MemoryPickleCore> {
-    const storageService = new StorageService();
+    const inMemoryStore = new InMemoryStore();
     const projectService = new ProjectService();
     const taskService = new TaskService();
     const memoryService = new MemoryService();
 
-    // Get the database reference directly from storage service
-    const database = storageService.getDatabase();
-
-    // Backward compatibility: Load legacy memories if main DB is empty
-    if (database.memories.length === 0) {
-      const legacyMemories = await storageService.loadMemories();
-      if (legacyMemories.length > 0) {
-        database.memories = legacyMemories;
-        // Note: Removed console.error to prevent MCP stdio interference
-        // Legacy memories loaded successfully
-      }
-    }
-
-    return new MemoryPickleCore(storageService, projectService, taskService, memoryService);
+    return new MemoryPickleCore(inMemoryStore, projectService, taskService, memoryService);
   }
 
   private buildTaskIndex(): void {
     if (this.isShuttingDown) return;
-    
-    const database = this.storageService.getDatabase();
+
+    const database = this.inMemoryStore.getDatabase();
     this.taskIndex.clear();
     for (const task of database.tasks) {
       this.taskIndex.set(task.id, task);
@@ -87,31 +74,27 @@ export class MemoryPickleCore {
   }
 
   /**
-   * Validates input arguments with comprehensive checks and sanitization
+   * Recalculates and updates project completion percentage based on current tasks
    */
-  private validateInput(args: any, requiredFields: string[], operation: string): any {
-    if (!args || typeof args !== 'object') {
-      throw new Error(`${operation}: Invalid arguments - expected object`);
-    }
-
-    // Create sanitized copy of args
-    const sanitizedArgs = { ...args };
-
-    for (const field of requiredFields) {
-      if (sanitizedArgs[field] === undefined || sanitizedArgs[field] === null) {
-        throw new Error(`${operation}: Missing required field '${field}'`);
+  private async _recalculateProjectCompletion(projectId: string): Promise<void> {
+    await this.inMemoryStore.runExclusive(async (db) => {
+      const project = this.projectService.findProjectById(db.projects, projectId);
+      if (!project) {
+        return { result: undefined, commit: false };
       }
 
-      if (typeof sanitizedArgs[field] === 'string') {
-        sanitizedArgs[field] = ValidationUtils.sanitizeString(sanitizedArgs[field]);
-        if (!sanitizedArgs[field]) {
-          throw new Error(`${operation}: Field '${field}' cannot be empty`);
-        }
-      }
-    }
+      // Use the existing ProjectService logic for consistency
+      this.projectService.updateProjectCompletion(project, db.tasks);
 
-    return sanitizedArgs;
+      return {
+        result: undefined,
+        commit: true,
+        changedParts: new Set(['projects'] as const)
+      };
+    });
   }
+
+
 
   /**
    * Safely executes operations with comprehensive error handling
@@ -140,7 +123,7 @@ export class MemoryPickleCore {
    */
   private validateCurrentProject(): string {
     // Always get fresh database reference to avoid stale data
-    const currentDatabase = this.storageService.getDatabase();
+    const currentDatabase = this.inMemoryStore.getDatabase();
     const currentProjectId = currentDatabase.meta?.current_project_id;
 
     if (!currentProjectId) {
@@ -161,25 +144,39 @@ export class MemoryPickleCore {
   async create_project(args: any): Promise<any> {
     return this.safeExecute('create_project', async () => {
       this.trackToolUsage('create_project');
-      this.validateInput(args, ['name'], 'create_project');
+
+      // Basic input validation (MCP schemas handle structure, but we need null checks)
+      if (!args || typeof args !== 'object') {
+        throw new Error('Invalid arguments - expected object');
+      }
 
       const { name, description = '', status = 'planning' } = args;
 
-      // Additional validation with more lenient limits for testing
-      if (name.length > 200) {
+      // Check required fields and sanitize
+      if (name === undefined || name === null) {
+        throw new Error("Missing required field 'name'");
+      }
+
+      const sanitizedName = ValidationUtils.sanitizeString(name);
+      const sanitizedDescription = ValidationUtils.sanitizeString(description);
+
+      if (!sanitizedName) {
+        throw new Error("Field 'name' cannot be empty");
+      }
+      if (sanitizedName.length > 200) {
         throw new Error('Project name cannot exceed 200 characters');
       }
-      if (description.length > 20000) {
+      if (sanitizedDescription.length > 20000) {
         throw new Error('Project description cannot exceed 20000 characters');
       }
       if (status && !['planning', 'in_progress', 'blocked', 'completed', 'archived'].includes(status)) {
         throw new Error('Invalid project status');
       }
 
-      const result = await this.storageService.runExclusive(async (db) => {
+      const result = await this.inMemoryStore.runExclusive(async (db) => {
         const newProject = this.projectService.createProject({
-          name: name.trim(),
-          description: description.trim()
+          name: sanitizedName,
+          description: sanitizedDescription
         });
 
         // Set status if provided
@@ -227,7 +224,7 @@ export class MemoryPickleCore {
     const { project_id } = args;
 
     // Always get fresh database reference
-    const currentDatabase = this.storageService.getDatabase();
+    const currentDatabase = this.inMemoryStore.getDatabase();
     
     // If no project_id provided, try to use the current project from meta
     let targetProjectId = project_id;
@@ -249,31 +246,15 @@ export class MemoryPickleCore {
     const completedTasks = projectTasks.filter(task => task.completed);
     const activeTasks = projectTasks.filter(task => !task.completed);
 
-    // Calculate actual completion percentage
-    const actualCompletion = projectTasks.length > 0
+    // Calculate completion percentage for display (read-only, no side effects)
+    const displayCompletion = projectTasks.length > 0
       ? Math.round((completedTasks.length / projectTasks.length) * 100)
       : 0;
-
-    // Update project completion if it's different
-    if (project.completion_percentage !== actualCompletion) {
-      await this.storageService.runExclusive(async (db) => {
-        const proj = this.projectService.findProjectById(db.projects, project_id);
-        if (proj) {
-          proj.completion_percentage = actualCompletion;
-        }
-        return {
-          result: undefined,
-          commit: true,
-          changedParts: new Set(['projects'] as const)
-        };
-      });
-      project.completion_percentage = actualCompletion;
-    }
 
     let statusText = `# Project Status: **${project.name}**\n\n`;
     statusText += `**ID:** ${project.id}\n`;
     statusText += `**Status:** ${project.status}\n`;
-    statusText += `**Completion:** ${project.completion_percentage}%\n`;
+    statusText += `**Completion:** ${displayCompletion}%\n`;
     statusText += `**Description:** ${project.description || 'No description'}\n\n`;
 
     statusText += `## Tasks Summary\n`;
@@ -303,7 +284,7 @@ export class MemoryPickleCore {
    * Get status for all projects when no specific project is requested
    */
   private getAllProjectsStatus(): any {
-    const currentDatabase = this.storageService.getDatabase();
+    const currentDatabase = this.inMemoryStore.getDatabase();
     const projects = currentDatabase.projects;
 
     if (projects.length === 0) {
@@ -350,7 +331,7 @@ export class MemoryPickleCore {
       throw new Error('Project ID is required');
     }
 
-    const result = await this.storageService.runExclusive(async (db) => {
+    const result = await this.inMemoryStore.runExclusive(async (db) => {
       const project = this.projectService.findProjectById(db.projects, project_id);
       if (!project) {
         throw new Error(`Project not found: ${project_id}`);
@@ -386,15 +367,29 @@ export class MemoryPickleCore {
   async create_task(args: any): Promise<any> {
     return this.safeExecute('create_task', async () => {
       this.trackToolUsage('create_task');
-      this.validateInput(args, ['title'], 'create_task');
+
+      // Basic input validation (MCP schemas handle structure, but we need null checks)
+      if (!args || typeof args !== 'object') {
+        throw new Error('Invalid arguments - expected object');
+      }
 
       const { title, description = '', priority = 'medium', project_id, parent_id, line_range } = args;
 
-      // Additional validation
-      if (title.length > 200) {
+      // Check required fields and sanitize
+      if (title === undefined || title === null) {
+        throw new Error("Missing required field 'title'");
+      }
+
+      const sanitizedTitle = ValidationUtils.sanitizeString(title);
+      const sanitizedDescription = ValidationUtils.sanitizeString(description);
+
+      if (!sanitizedTitle) {
+        throw new Error("Field 'title' cannot be empty");
+      }
+      if (sanitizedTitle.length > 200) {
         throw new Error('Task title cannot exceed 200 characters');
       }
-      if (description.length > 2000) {
+      if (sanitizedDescription.length > 2000) {
         throw new Error('Task description cannot exceed 2000 characters');
       }
       if (priority && !['low', 'medium', 'high', 'critical'].includes(priority)) {
@@ -407,7 +402,7 @@ export class MemoryPickleCore {
         targetProjectId = this.validateCurrentProject();
       }
 
-      const result = await this.storageService.runExclusive(async (db) => {
+      const result = await this.inMemoryStore.runExclusive(async (db) => {
         // Verify project exists
         const project = this.projectService.findProjectById(db.projects, targetProjectId);
         if (!project) {
@@ -426,8 +421,8 @@ export class MemoryPickleCore {
         }
 
         const newTask = this.taskService.createTask({
-          title: title.trim(),
-          description: description.trim(),
+          title: sanitizedTitle,
+          description: sanitizedDescription,
           priority,
           project_id: targetProjectId,
           parent_id,
@@ -446,10 +441,13 @@ export class MemoryPickleCore {
       // Note: No need to reload database since we're working with the same instance
       this.buildTaskIndex();
 
+      // Recalculate project completion since we added a new task
+      await this._recalculateProjectCompletion(targetProjectId);
+
       // Track session activity
       this.trackToolUsage('create_task', 'task_created', result.id);
 
-      const database = this.storageService.getDatabase();
+      const database = this.inMemoryStore.getDatabase();
       const project = this.projectService.findProjectById(database.projects, targetProjectId);
 
       return {
@@ -464,30 +462,41 @@ export class MemoryPickleCore {
   async update_task(args: any): Promise<any> {
     return this.safeExecute('update_task', async () => {
       this.trackToolUsage('update_task');
-      this.validateInput(args, ['task_id'], 'update_task');
+
+      // Basic input validation (MCP schemas handle structure, but we need null checks)
+      if (!args || typeof args !== 'object') {
+        throw new Error('Invalid arguments - expected object');
+      }
 
       const { task_id, title, description, priority, completed, progress, notes, blockers } = args;
 
-      // Additional validation
-      if (title !== undefined && title.length > 200) {
+      // Check required fields
+      if (task_id === undefined || task_id === null) {
+        throw new Error("Missing required field 'task_id'");
+      }
+
+      const sanitizedTitle = title !== undefined ? ValidationUtils.sanitizeString(title) : undefined;
+      const sanitizedDescription = description !== undefined ? ValidationUtils.sanitizeString(description) : undefined;
+
+      if (sanitizedTitle !== undefined && sanitizedTitle.length > 200) {
         throw new Error('Task title cannot exceed 200 characters');
       }
-      if (description !== undefined && description.length > 2000) {
+      if (sanitizedDescription !== undefined && sanitizedDescription.length > 2000) {
         throw new Error('Task description cannot exceed 2000 characters');
       }
       if (priority !== undefined && !['low', 'medium', 'high', 'critical'].includes(priority)) {
         throw new Error('Invalid task priority');
       }
 
-      const result = await this.storageService.runExclusive(async (db) => {
+      const result = await this.inMemoryStore.runExclusive(async (db) => {
       const task = this.taskService.findTaskById(db.tasks, task_id);
       if (!task) {
         throw new Error(`Task not found: ${task_id}`);
       }
 
       const updates: Partial<Task> = {};
-      if (title !== undefined) updates.title = title.trim();
-      if (description !== undefined) updates.description = description.trim();
+      if (sanitizedTitle !== undefined) updates.title = sanitizedTitle;
+      if (sanitizedDescription !== undefined) updates.description = sanitizedDescription;
       if (priority !== undefined) updates.priority = priority;
       if (completed !== undefined) {
         updates.completed = completed;
@@ -542,6 +551,11 @@ export class MemoryPickleCore {
     // Note: No need to reload database since we're working with the same instance
     this.buildTaskIndex();
 
+    // Recalculate project completion if task completion status changed
+    if (completed !== undefined) {
+      await this._recalculateProjectCompletion(result.project_id);
+    }
+
     // Track session activity
     this.trackToolUsage('update_task', 'task_updated', result.id);
     if (completed === true) {
@@ -585,21 +599,39 @@ export class MemoryPickleCore {
   async remember_this(args: any): Promise<any> {
     return this.safeExecute('remember_this', async () => {
       this.trackToolUsage('remember_this');
-      const sanitizedArgs = this.validateInput(args, ['content'], 'remember_this');
-      
-      // Use StorageService validation for memory data
-      const memoryData = {
-        content: sanitizedArgs.content,
-        title: sanitizedArgs.title,
-        importance: sanitizedArgs.importance || 'medium',
-        project_id: sanitizedArgs.project_id,
-        task_id: sanitizedArgs.task_id,
-        line_range: sanitizedArgs.line_range
-      };
-      
-      const validatedMemory = this.storageService.validateAndSanitizeInput('memory', memoryData);
 
-      const result = await this.storageService.runExclusive(async (db) => {
+      // Basic input validation (MCP schemas handle structure, but we need null checks)
+      if (!args || typeof args !== 'object') {
+        throw new Error('Invalid arguments - expected object');
+      }
+
+      const { content, title, importance = 'medium', project_id, task_id, line_range } = args;
+
+      // Check required fields and sanitize
+      if (content === undefined || content === null) {
+        throw new Error("Missing required field 'content'");
+      }
+
+      const sanitizedContent = ValidationUtils.sanitizeString(content);
+      const sanitizedTitle = title ? ValidationUtils.sanitizeString(title) : undefined;
+
+      if (!sanitizedContent) {
+        throw new Error("Field 'content' cannot be empty");
+      }
+
+      // Use InMemoryStore validation for memory data
+      const memoryData = {
+        content: sanitizedContent,
+        title: sanitizedTitle,
+        importance,
+        project_id,
+        task_id,
+        line_range
+      };
+
+      const validatedMemory = this.inMemoryStore.validateAndSanitizeInput('memory', memoryData);
+
+      const result = await this.inMemoryStore.runExclusive(async (db) => {
         const newMemory = this.memoryService.addMemory(db.memories, {
           title: validatedMemory.title || `Memory from ${new Date().toLocaleDateString()}`,
           content: validatedMemory.content,
@@ -639,7 +671,7 @@ export class MemoryPickleCore {
     const { query, project_id, importance, limit = 10 } = args;
 
     // Always get fresh database reference
-    const database = this.storageService.getDatabase();
+    const database = this.inMemoryStore.getDatabase();
     let memories = database.memories;
 
     // Apply filters
@@ -703,7 +735,7 @@ export class MemoryPickleCore {
     const { project_id, format = 'detailed' } = args;
 
     // Always get fresh database reference
-    const database = this.storageService.getDatabase();
+    const database = this.inMemoryStore.getDatabase();
     let projects = database.projects;
     if (project_id) {
       const project = this.projectService.findProjectById(projects, project_id);
@@ -833,7 +865,7 @@ export class MemoryPickleCore {
       throw new Error('Project ID is required');
     }
 
-    const result = await this.storageService.runExclusive(async (db) => {
+    const result = await this.inMemoryStore.runExclusive(async (db) => {
       const project = this.projectService.findProjectById(db.projects, project_id);
       if (!project) {
         throw new Error(`Project not found: ${project_id}`);
@@ -875,7 +907,7 @@ export class MemoryPickleCore {
 
   // Getter methods for accessing internal state (useful for handlers)
   getDatabase(): ProjectDatabase {
-    return this.storageService.getDatabase();
+    return this.inMemoryStore.getDatabase();
   }
 
   getTaskIndex(): Map<string, Task> {
@@ -891,8 +923,8 @@ export class MemoryPickleCore {
     // Clear task index to free memory
     this.taskIndex.clear();
 
-    // Cleanup storage service
-    this.storageService.cleanup();
+    // Cleanup in-memory store
+    this.inMemoryStore.cleanup();
   }
 
   /**
@@ -961,13 +993,13 @@ export class MemoryPickleCore {
    * Get system health and performance statistics
    */
   getSystemStats(): {
-    database: ReturnType<StorageService['getStats']>;
+    database: ReturnType<InMemoryStore['getStats']>;
     taskIndexSize: number;
     sessionDuration: number;
     isShuttingDown: boolean;
   } {
     return {
-      database: this.storageService.getStats(),
+      database: this.inMemoryStore.getStats(),
       taskIndexSize: this.taskIndex.size,
       sessionDuration: Math.round((Date.now() - this.sessionStartTime.getTime()) / 1000 / 60),
       isShuttingDown: this.isShuttingDown
@@ -975,7 +1007,7 @@ export class MemoryPickleCore {
   }
 
   /**
-   * Comprehensive cleanup of orphaned data with enhanced integrity checks
+   * Simplified cleanup of orphaned data for data integrity recovery
    */
   async cleanupOrphanedData(): Promise<{
     orphanedTasks: number;
@@ -986,9 +1018,7 @@ export class MemoryPickleCore {
     corruptedDataFixed: number;
   }> {
     return this.safeExecute('cleanupOrphanedData', async () => {
-      const result = await this.storageService.runExclusive(async (db) => {
-        // Pre-validate database state
-        const preValidation = ValidationUtils.validateDatabase(db);
+      const result = await this.inMemoryStore.runExclusive(async (db) => {
         const stats = {
           orphanedTasks: 0,
           orphanedMemories: 0,
@@ -998,138 +1028,113 @@ export class MemoryPickleCore {
           corruptedDataFixed: 0
         };
 
-        // Create backup for rollback
-        const dbBackup = {
-          projects: [...db.projects],
-          tasks: [...db.tasks],
-          memories: [...db.memories],
-          meta: { ...db.meta }
-        };
+        const projectIds = new Set(db.projects.map(p => p.id));
+        const taskIds = new Set(db.tasks.map(t => t.id));
 
-        try {
-          const projectIds = new Set(db.projects.map(p => p.id));
-          const taskIds = new Set(db.tasks.map(t => t.id));
-
-          // 1. Remove duplicate projects
-          const uniqueProjects = new Map();
-          db.projects = db.projects.filter(project => {
-            if (uniqueProjects.has(project.id)) {
-              stats.duplicatesRemoved++;
-              return false;
-            }
-            uniqueProjects.set(project.id, project);
-            return true;
-          });
-
-          // 2. Remove orphaned tasks
-          const validTasks = db.tasks.filter(task => {
-            if (!projectIds.has(task.project_id)) {
-              stats.orphanedTasks++;
-              return false;
-            }
-            return true;
-          });
-          db.tasks = validTasks;
-
-          // 3. Fix invalid task parent references
-          db.tasks.forEach(task => {
-            if (task.parent_id && !taskIds.has(task.parent_id)) {
-              task.parent_id = undefined;
-              stats.invalidTaskReferences++;
-            }
-          });
-
-          // 4. Remove orphaned memories
-          const validMemories = db.memories.filter(memory => {
-            if (memory.project_id && !projectIds.has(memory.project_id)) {
-              stats.orphanedMemories++;
-              return false;
-            }
-            if (memory.task_id && !taskIds.has(memory.task_id)) {
-              memory.task_id = undefined;
-              stats.invalidTaskReferences++;
-            }
-            return true;
-          });
-          db.memories = validMemories;
-
-          // 5. Fix invalid current project
-          if (db.meta.current_project_id && !projectIds.has(db.meta.current_project_id)) {
-            db.meta.current_project_id = undefined;
-            stats.invalidCurrentProject = true;
+        // 1. Remove duplicates using Set-based deduplication
+        const uniqueProjects = new Map();
+        db.projects = db.projects.filter(project => {
+          if (uniqueProjects.has(project.id)) {
+            stats.duplicatesRemoved++;
+            return false;
           }
+          uniqueProjects.set(project.id, project);
+          return true;
+        });
 
-          // 6. Remove duplicate tasks
-          const uniqueTasks = new Map();
-          db.tasks = db.tasks.filter(task => {
-            if (uniqueTasks.has(task.id)) {
-              stats.duplicatesRemoved++;
-              return false;
-            }
-            uniqueTasks.set(task.id, task);
-            return true;
-          });
-
-          // 7. Remove duplicate memories
-          const uniqueMemories = new Map();
-          db.memories = db.memories.filter(memory => {
-            if (uniqueMemories.has(memory.id)) {
-              stats.duplicatesRemoved++;
-              return false;
-            }
-            uniqueMemories.set(memory.id, memory);
-            return true;
-          });
-
-          // 8. Fix corrupted data
-          db.projects.forEach(project => {
-            if (!project.id || !project.name) {
-              stats.corruptedDataFixed++;
-              if (!project.id) project.id = `project-${Date.now()}-${Math.random()}`;
-              if (!project.name) project.name = 'Recovered Project';
-            }
-          });
-
-          db.tasks.forEach(task => {
-            if (!task.id || !task.title) {
-              stats.corruptedDataFixed++;
-              if (!task.id) task.id = `task-${Date.now()}-${Math.random()}`;
-              if (!task.title) task.title = 'Recovered Task';
-            }
-          });
-
-          db.memories.forEach(memory => {
-            if (!memory.id || !memory.content) {
-              stats.corruptedDataFixed++;
-              if (!memory.id) memory.id = `memory-${Date.now()}-${Math.random()}`;
-              if (!memory.content) memory.content = 'Recovered memory content';
-            }
-          });
-
-          // 9. Validate final state
-          const postValidation = ValidationUtils.validateDatabase(db);
-          if (!postValidation.isValid) {
-            throw new Error(`Cleanup would create invalid state: ${postValidation.errors.join('; ')}`);
+        const uniqueTasks = new Map();
+        db.tasks = db.tasks.filter(task => {
+          if (uniqueTasks.has(task.id)) {
+            stats.duplicatesRemoved++;
+            return false;
           }
+          uniqueTasks.set(task.id, task);
+          return true;
+        });
 
-          const hasChanges = Object.values(stats).some(value => 
-            typeof value === 'number' ? value > 0 : value === true
-          );
+        const uniqueMemories = new Map();
+        db.memories = db.memories.filter(memory => {
+          if (uniqueMemories.has(memory.id)) {
+            stats.duplicatesRemoved++;
+            return false;
+          }
+          uniqueMemories.set(memory.id, memory);
+          return true;
+        });
 
-          return {
-            result: stats,
-            commit: hasChanges,
-            changedParts: new Set(['projects', 'tasks', 'memories', 'meta'] as const)
-          };
+        // 2. Remove orphaned data
+        db.tasks = db.tasks.filter(task => {
+          if (!projectIds.has(task.project_id)) {
+            stats.orphanedTasks++;
+            return false;
+          }
+          return true;
+        });
 
-        } catch (error) {
-          // Rollback all changes
-          db.projects = dbBackup.projects;
-          db.tasks = dbBackup.tasks;
-          db.memories = dbBackup.memories;
-          db.meta = dbBackup.meta;
-          throw error;
+        db.memories = db.memories.filter(memory => {
+          if (memory.project_id && !projectIds.has(memory.project_id)) {
+            stats.orphanedMemories++;
+            return false;
+          }
+          return true;
+        });
+
+        // 3. Fix invalid references
+        db.tasks.forEach(task => {
+          if (task.parent_id && !taskIds.has(task.parent_id)) {
+            task.parent_id = undefined;
+            stats.invalidTaskReferences++;
+          }
+        });
+
+        db.memories.forEach(memory => {
+          if (memory.task_id && !taskIds.has(memory.task_id)) {
+            memory.task_id = undefined;
+            stats.invalidTaskReferences++;
+          }
+        });
+
+        // 4. Fix invalid current project
+        if (db.meta.current_project_id && !projectIds.has(db.meta.current_project_id)) {
+          db.meta.current_project_id = undefined;
+          stats.invalidCurrentProject = true;
         }
+
+        // 5. Fix corrupted data (missing required fields)
+        db.projects.forEach(project => {
+          if (!project.id || !project.name) {
+            stats.corruptedDataFixed++;
+            if (!project.id) project.id = `project-${Date.now()}-${Math.random()}`;
+            if (!project.name) project.name = 'Recovered Project';
+          }
+        });
+
+        db.tasks.forEach(task => {
+          if (!task.id || !task.title) {
+            stats.corruptedDataFixed++;
+            if (!task.id) task.id = `task-${Date.now()}-${Math.random()}`;
+            if (!task.title) task.title = 'Recovered Task';
+          }
+        });
+
+        db.memories.forEach(memory => {
+          if (!memory.id || !memory.content) {
+            stats.corruptedDataFixed++;
+            if (!memory.id) memory.id = `memory-${Date.now()}-${Math.random()}`;
+            if (!memory.content) memory.content = 'Recovered memory content';
+          }
+        });
+
+        // Only commit if there were actual changes
+        const hasChanges = Object.values(stats).some(value =>
+          typeof value === 'number' ? value > 0 : value === true
+        );
+
+        return {
+          result: stats,
+          commit: hasChanges,
+          changedParts: new Set(['projects', 'tasks', 'memories', 'meta'] as const)
+        };
       });
 
       // Rebuild task index if tasks were changed

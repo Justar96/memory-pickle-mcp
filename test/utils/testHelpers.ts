@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import type { Task, Project, Memory, ProjectDatabase } from '../../src/types';
 import { projectDatabaseSchema } from '../../src/types/schemas';
 import { MemoryPickleCore } from '../../src/core/MemoryPickleCore';
-import { StorageService } from '../../src/services/StorageService';
+import { InMemoryStore } from '../../src/services/InMemoryStore';
 import { ProjectService } from '../../src/services/ProjectService';
 import { TaskService } from '../../src/services/TaskService';
 import { MemoryService } from '../../src/services/MemoryService';
@@ -11,7 +11,7 @@ import { MemoryService } from '../../src/services/MemoryService';
  * Test-specific storage service that works with in-memory data
  * instead of reloading from the file system
  */
-class TestStorageService extends StorageService {
+class TestInMemoryStore extends InMemoryStore {
   private testDatabase: ProjectDatabase;
 
   constructor(database: ProjectDatabase) {
@@ -131,14 +131,14 @@ export class MemoryPickleCoreTestUtils {
     storageServicePath?: string
   ): Promise<MemoryPickleCore> {
     // Create test-specific storage service that doesn't reload from file system
-    const storageService = new TestStorageService(database);
+    const inMemoryStore = new TestInMemoryStore(database);
     const projectService = new ProjectService();
     const taskService = new TaskService();
     const memoryService = new MemoryService();
 
     // Create MemoryPickleCore instance with test data
     const core = new MemoryPickleCore(
-      storageService,
+      inMemoryStore,
       projectService,
       taskService,
       memoryService

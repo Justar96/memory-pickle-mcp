@@ -2,19 +2,10 @@ import type { z } from 'zod';
 import type { projectDatabaseSchema, Task, Project, Memory } from './schemas.js';
 
 // --- Core Database Types (from Zod schemas) ---
-export type { ProjectDatabase, Task, Project, Memory } from './schemas.js';
-export type { LineRange } from './Task.js';
+export type { ProjectDatabase, Task, Project, Memory, Milestone, LineRange } from './schemas.js';
 
 
 // --- View Model & Non-persistent Interfaces ---
-
-export interface Milestone {
-  id: string;
-  title: string;
-  due_date?: string;
-  completed: boolean;
-  tasks: string[]; // Task IDs
-}
 
 export interface ProjectSummary {
   project: Project;

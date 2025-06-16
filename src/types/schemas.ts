@@ -89,3 +89,5 @@ export type ProjectDatabase = z.infer<typeof projectDatabaseSchema>;
 export type Task = z.infer<typeof taskSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type Memory = z.infer<typeof memorySchema>;
+export type Milestone = z.infer<typeof milestoneSchema>;
+export type LineRange = z.infer<typeof lineRangeSchema>;

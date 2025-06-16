@@ -1,7 +1,7 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { MemoryPickleCoreTestUtils, TestDataFactory } from './utils/testHelpers';
 import { MemoryPickleCore } from '../src/core/MemoryPickleCore';
-import { StorageService } from '../src/services/StorageService';
+import { InMemoryStore } from '../src/services/InMemoryStore';
 import { ProjectService } from '../src/services/ProjectService';
 import { TaskService } from '../src/services/TaskService';
 import { MemoryService } from '../src/services/MemoryService';
@@ -241,7 +241,7 @@ describe('Service Method Coverage', () => {
     });
   });
 
-  describe('StorageService Coverage', () => {
+  describe('InMemoryStore Coverage', () => {
     it('should handle database schema validation', () => {
       const validDatabase = TestDataFactory.createDatabase({
         projects: [TestDataFactory.createProject({ name: 'Test' })],

@@ -1,14 +1,14 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { MemoryPickleCore } from '../src/core/MemoryPickleCore';
-import { StorageService } from '../src/services/StorageService';
+import { InMemoryStore } from '../src/services/InMemoryStore';
 
 describe('System Robustness and Reliability Tests', () => {
   let core: MemoryPickleCore;
-  let storageService: StorageService;
+  let inMemoryStore: InMemoryStore;
 
   beforeEach(async () => {
     core = await MemoryPickleCore.create();
-    storageService = new StorageService();
+    inMemoryStore = new InMemoryStore();
   });
 
   afterEach(async () => {

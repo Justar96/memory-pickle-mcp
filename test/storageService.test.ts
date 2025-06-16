@@ -1,17 +1,17 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { StorageService } from '../src/services/StorageService';
+import { InMemoryStore } from '../src/services/InMemoryStore';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
-describe('StorageService Concurrency and Locking', () => {
-  let storageService: StorageService;
+describe('InMemoryStore Concurrency and Locking', () => {
+  let inMemoryStore: InMemoryStore;
   const testDataDir = path.resolve(process.cwd(), 'test_data_storage');
   const testProjectFile = path.join(testDataDir, 'project-data.yaml');
 
   beforeEach(async () => {
     await fs.rm(testDataDir, { recursive: true, force: true });
     await fs.mkdir(testDataDir, { recursive: true });
-    storageService = new StorageService();
+    inMemoryStore = new InMemoryStore();
   });
 
   afterEach(async () => {
@@ -20,7 +20,7 @@ describe('StorageService Concurrency and Locking', () => {
 
   it('should acquire and release file lock properly', async () => {
     let lockAcquired = false;
-    await storageService.runExclusive(async (db) => {
+    await inMemoryStore.runExclusive(async (db) => {
       lockAcquired = true;
       return { result: null, commit: false };
     });
@@ -39,11 +39,11 @@ describe('StorageService Concurrency and Locking', () => {
       memories: [],
       templates: {}
     };
-    await storageService.saveDatabase(initialDb);
+    await inMemoryStore.saveDatabase(initialDb);
 
     const promises: Promise<void>[] = [];
     for (let i = 0; i < 5; i++) {
-      promises.push(storageService.runExclusive(async (db) => {
+      promises.push(inMemoryStore.runExclusive(async (db) => {
         db.meta.session_count = i + 1;
         return { result: undefined, commit: true };
       }));
@@ -51,7 +51,7 @@ describe('StorageService Concurrency and Locking', () => {
 
     await Promise.all(promises);
 
-    const finalDb = await storageService.loadDatabase();
+    const finalDb = await inMemoryStore.loadDatabase();
     expect([1, 2, 3, 4, 5]).toContain(finalDb.meta.session_count);
   });
 
@@ -66,7 +66,7 @@ describe('StorageService Concurrency and Locking', () => {
     };
     await fs.writeFile(lockFile, JSON.stringify(lockInfo, null, 2));
 
-    const storage = new StorageService();
+    const storage = new InMemoryStore();
 
     // Should succeed because the lock will be detected as stale and removed
     let operationExecuted = false;
