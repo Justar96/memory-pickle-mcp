@@ -3,18 +3,21 @@
 /**
  * Memory Pickle MCP Server
  *
- * A simplified project management system that provides:
- * - Project and task management with clear organization
- * - in-memory storage for context and notes
- * - Session handoff capabilities for continuity
+ * An intelligent project management system that provides:
+ * - Project and task management with hierarchical organization
+ * - Persistent memory storage for context and notes
+ * - Intelligent task analysis and optimization
+ * - Comprehensive export and handoff capabilities
  * - Split-file YAML database for better organization
  *
  * Features:
- * - 9 essential MCP tools with research-backed prompts
+ * - 17 MCP tools for complete project lifecycle management
  * - Atomic file operations with proper locking
  * - Automatic task priority detection
+ * - Memory templates for structured note-taking
+ * - Markdown export functionality
  * - Session tracking and handoff summaries
- * - Clean, agent-friendly interface
+ * - Intelligent task analysis and recommendations
  *
  * Architecture:
  * - Service-oriented design with clear separation of concerns
@@ -46,8 +49,7 @@ async function main(): Promise<void> {
     await startServer(server, transport);
 
   } catch (error) {
-    // Note: Avoid console.error to prevent MCP stdio interference
-    // Error details are available in the error object for debugging
+    console.error("Server startup error:", error);
     process.exit(1);
   }
 }

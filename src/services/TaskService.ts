@@ -1,5 +1,6 @@
 import type { Task, Project } from '../types/index.js';
 import { generateId } from '../utils/idGenerator.js';
+import { taskCheckbox, sectionHeader } from '../utils/emojiUtils.js';
 
 /**
  * Service responsible for task management operations
@@ -41,11 +42,6 @@ export class TaskService {
       throw new Error('Project ID is required');
     }
 
-    // Validate priority if provided
-    if (priority && !['critical', 'high', 'medium', 'low'].includes(priority)) {
-      throw new Error(`Invalid priority: ${priority}. Must be one of: critical, high, medium, low`);
-    }
-
     return {
       id: generateId('task'),
       project_id,
@@ -53,7 +49,6 @@ export class TaskService {
       title,
       description,
       completed: false,
-      progress: 0,
       created_date: new Date().toISOString(),
       due_date,
       priority: finalPriority,
@@ -153,20 +148,18 @@ export class TaskService {
       throw new Error(`Task not found: ${taskId}`);
     }
 
-    // Apply updates first
+    // Apply updates
     Object.assign(task, updates);
 
-    // Handle completion date when completed is set to true
-    if (updates.completed === true) {
-      task.completed_date = new Date().toISOString();
-    } else if (updates.completed === false) {
-      task.completed_date = undefined;
-    }
-
-    // Handle progress-based completion (only if progress reaches 100 and completed wasn't explicitly set)
-    if (updates.progress !== undefined && updates.progress >= 100 && updates.completed === undefined) {
-      task.completed = true;
-      task.completed_date = new Date().toISOString();
+    // Handle completion logic
+    if (updates.completed !== undefined) {
+      if (updates.completed) {
+        task.completed_date = new Date().toISOString();
+        task.progress = 100;
+      } else {
+        task.completed_date = undefined;
+        task.progress = 0;
+      }
     }
 
     return task;
@@ -262,13 +255,13 @@ export class TaskService {
    */
   formatTaskTree(task: Task, allTasks: Task[], indent: number = 0): string {
     const indentStr = '  '.repeat(indent);
-    const checkbox = task.completed ? '[DONE]' : '[ ]';
+    const checkbox = taskCheckbox(task.completed);
     const progress = task.progress ? ` (${task.progress}%)` : '';
     
     let result = `${indentStr}${checkbox} ${task.title}${progress} [${task.priority}]\n`;
     
     if (task.blockers && task.blockers.length > 0) {
-      result += `${indentStr}  [BLOCKED] ${task.blockers.join(', ')}\n`;
+      result += `${indentStr}  🚨 Blocked: ${task.blockers.join(', ')}\n`;
     }
 
     if (task.subtasks && task.subtasks.length > 0) {
@@ -285,15 +278,15 @@ export class TaskService {
    * Formats task list for display
    */
   formatTaskList(tasks: Task[]): string {
-    let result = `# Task List\n\n`;
+    let result = `# ${sectionHeader('Task List', '📋')}\n\n`;
     result += `**Found:** ${tasks.length} tasks\n\n`;
 
     tasks.forEach(task => {
-      result += `${task.completed ? '[DONE]' : '[ ]'} **${task.title}** (${task.id})\n`;
+      result += `${taskCheckbox(task.completed)} **${task.title}** (${task.id})\n`;
       result += `   Priority: ${task.priority} | Progress: ${task.progress || 0}%\n`;
       if (task.description) result += `   ${task.description}\n`;
       if (task.blockers && task.blockers.length > 0) {
-        result += `   [BLOCKED] ${task.blockers.join(', ')}\n`;
+        result += `   🚨 Blocked: ${task.blockers.join(', ')}\n`;
       }
       result += '\n';
     });
@@ -318,7 +311,7 @@ export class TaskService {
     }
     
     if (task.blockers && task.blockers.length > 0) {
-      result += `${indentStr}  > [BLOCKED] ${task.blockers.join(', ')}\n`;
+      result += `${indentStr}  > 🚨 Blocked: ${task.blockers.join(', ')}\n`;
     }
 
     if (task.subtasks && task.subtasks.length > 0) {

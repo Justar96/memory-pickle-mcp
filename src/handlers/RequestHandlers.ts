@@ -8,7 +8,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import * as fs from 'fs';
 import * as path from 'path';
-import { getDataDir, getProjectsFile, getTasksFile, getMemoriesFile } from '../config/constants.js';
+import { DATA_DIR, PROJECTS_FILE, TASKS_FILE, MEMORIES_FILE } from '../config/constants.js';
 import { ALL_TOOLS } from '../tools/index.js';
 import type { MemoryPickleCore } from '../core/MemoryPickleCore.js';
 
@@ -18,10 +18,10 @@ import type { MemoryPickleCore } from '../core/MemoryPickleCore.js';
 export function setupRequestHandlers(server: Server, core: MemoryPickleCore): void {
   // Tool handling
   setupToolHandlers(server, core);
-
+  
   // Resource handling
   setupResourceHandlers(server);
-
+  
   // Template handling
   setupTemplateHandlers(server);
 }
@@ -41,12 +41,13 @@ function setupToolHandlers(server: Server, core: MemoryPickleCore): void {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
-    // Simplified whitelist of core methods (8 tools)
+    // Simple whitelist of allowed methods
     const allowedMethods = [
-      'get_project_status', 'create_project', 'set_current_project',
-      'create_task', 'update_task',
-      'remember_this', 'recall_context',
-      'generate_handoff_summary'
+      'create_project', 'get_project_status', 'update_project', 'list_projects', 'set_current_project',
+      'create_task', 'update_task', 'toggle_task', 'list_tasks', 'get_tasks', 'update_task_progress',
+      'remember_this', 'recall_context', 'add_memory', 'search_memories',
+      'export_to_markdown', 'list_templates', 'list_categories', 'generate_handoff_summary',
+      'validate_database', 'check_workflow_state', 'repair_orphaned_data'
     ];
 
     if (!allowedMethods.includes(name)) {
@@ -80,8 +81,8 @@ function setupResourceHandlers(server: Server): void {
     const resources = [];
 
     // Check for split files (current architecture)
-    const metaFile = path.join(getDataDir(), 'meta.yaml');
-    if (fs.existsSync(getProjectsFile())) {
+    const metaFile = path.join(DATA_DIR, 'meta.yaml');
+    if (fs.existsSync(PROJECTS_FILE)) {
       resources.push({
         uri: `file:///projects.yaml`,
         mimeType: "text/yaml",
@@ -90,7 +91,7 @@ function setupResourceHandlers(server: Server): void {
       });
     }
 
-    if (fs.existsSync(getTasksFile())) {
+    if (fs.existsSync(TASKS_FILE)) {
       resources.push({
         uri: `file:///tasks.yaml`,
         mimeType: "text/yaml",
@@ -99,7 +100,7 @@ function setupResourceHandlers(server: Server): void {
       });
     }
 
-    if (fs.existsSync(getMemoriesFile())) {
+    if (fs.existsSync(MEMORIES_FILE)) {
       resources.push({
         uri: `file:///memories.yaml`,
         mimeType: "text/yaml",
@@ -118,7 +119,7 @@ function setupResourceHandlers(server: Server): void {
     }
 
     // Check for exported markdown files
-    const exportFile = path.join(getDataDir(), 'project-export.md');
+    const exportFile = path.join(DATA_DIR, 'project-export.md');
     if (fs.existsSync(exportFile)) {
       resources.push({
         uri: `file:///project-export.md`,
@@ -163,30 +164,30 @@ function setupResourceHandlers(server: Server): void {
         let actualFilePath;
         switch (fileName) {
           case 'projects.yaml':
-            actualFilePath = getProjectsFile();
+            actualFilePath = PROJECTS_FILE;
             break;
           case 'tasks.yaml':
-            actualFilePath = getTasksFile();
+            actualFilePath = TASKS_FILE;
             break;
           case 'memories.yaml':
-            actualFilePath = getMemoriesFile();
+            actualFilePath = MEMORIES_FILE;
             break;
           case 'meta.yaml':
-            actualFilePath = path.join(getDataDir(), 'meta.yaml');
+            actualFilePath = path.join(DATA_DIR, 'meta.yaml');
             break;
           case 'project-export.md':
-            actualFilePath = path.join(getDataDir(), 'project-export.md');
+            actualFilePath = path.join(DATA_DIR, 'project-export.md');
             break;
           default:
             // Fallback to direct path construction
-            actualFilePath = path.join(getDataDir(), fileName);
+            actualFilePath = path.join(DATA_DIR, fileName);
         }
 
         console.error(`Debug: Resolved file path: ${actualFilePath}`);
 
         // Security validation - ensure resolved path is within data directory
         const resolvedPath = path.resolve(actualFilePath);
-        const dataDir = path.resolve(getDataDir());
+        const dataDir = path.resolve(DATA_DIR);
 
         if (!resolvedPath.startsWith(dataDir)) {
           throw new Error('Access denied: File outside allowed directory');

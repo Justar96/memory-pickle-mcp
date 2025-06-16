@@ -1,4 +1,4 @@
-import type { Memory, HandoffSummary, Task, Project } from '../types/index.js';
+import type { Memory, MemoryTemplate, HandoffSummary, Task, Project } from '../types/index.js';
 import { generateId } from '../utils/idGenerator.js';
 
 /**
@@ -72,28 +72,26 @@ export class MemoryService {
     limit?: number;
   }): Memory[] {
     const { query, category, tags, limit = 10 } = args;
-
-    // Allow searching by tags alone, or require query if no other filters
-    if (!query && !category && !tags) {
+    
+    if (!query) {
       return [];
     }
 
-    const lowerQuery = query?.toLowerCase();
+    const lowerQuery = query.toLowerCase();
     
     const results = memories.filter(memory => {
       const lowerCaseTags = memory.tags.map(t => t.toLowerCase());
 
-      const matchesQuery = !lowerQuery || (
+      const matchesQuery =
         memory.title.toLowerCase().includes(lowerQuery) ||
         memory.content.toLowerCase().includes(lowerQuery) ||
-        lowerCaseTags.some(tag => tag.includes(lowerQuery))
-      );
-
+        lowerCaseTags.some(tag => tag.includes(lowerQuery));
+      
       const matchesCategory = !category || memory.category.toLowerCase() === category.toLowerCase();
-
+      
       // Use AND logic for tags: all provided tags must be present.
       const matchesTags = !tags || tags.every((tag: string) => lowerCaseTags.includes(tag.toLowerCase()));
-
+      
       return matchesQuery && matchesCategory && matchesTags;
     }).slice(0, limit);
 
@@ -113,7 +111,7 @@ export class MemoryService {
 ${memory.content}`;
     }).join('\n\n---\n\n');
 
-    return `[FOUND] Found ${memories.length} relevant memories:\n\n${formattedResults}`;
+    return `🧠 Found ${memories.length} relevant memories:\n\n${formattedResults}`;
   }
 
   /**
@@ -123,6 +121,7 @@ ${memory.content}`;
     project: Project,
     tasks: Task[],
     sessionCount: number,
+    format: 'detailed' | 'compact' = 'detailed',
     sessionStartTime?: Date
   ): HandoffSummary {
     // Get tasks completed in current session (default to last 2 hours if no session start time)
@@ -182,13 +181,13 @@ ${memory.content}`;
    * Formats handoff summary for display
    */
   formatHandoffSummary(handoff: HandoffSummary, format: 'detailed' | 'compact' = 'detailed'): string {
-    let result = `# [HANDOFF] Project Handoff Summary\n\n`;
+    let result = `# 🤝 Project Handoff Summary\n\n`;
     result += `**Project:** ${handoff.project_name}\n`;
     result += `**Completion:** ${handoff.completion_percentage}%\n`;
     result += `**Session Date:** ${new Date(handoff.last_session_date).toLocaleString()}\n\n`;
 
     if (format === 'detailed') {
-      result += `## [DONE] Completed This Session\n`;
+      result += `## ✅ Completed This Session\n`;
       if (handoff.completed_in_last_session.length > 0) {
         handoff.completed_in_last_session.forEach(item => {
           result += `- ${item}\n`;
@@ -197,7 +196,7 @@ ${memory.content}`;
         result += `- No tasks completed this session\n`;
       }
 
-      result += `\n## [ACTIVE] In Progress\n`;
+      result += `\n## 🔄 In Progress\n`;
       if (handoff.in_progress.length > 0) {
         handoff.in_progress.forEach(item => {
           result += `- ${item}\n`;
@@ -207,13 +206,13 @@ ${memory.content}`;
       }
 
       if (handoff.blocked_items.length > 0) {
-        result += `\n## [BLOCKED] Blocked Items\n`;
+        result += `\n## 🚨 Blocked Items\n`;
         handoff.blocked_items.forEach(item => {
           result += `- ${item}\n`;
         });
       }
 
-      result += `\n## [NEXT] Next Priorities\n`;
+      result += `\n## 🎯 Next Priorities\n`;
       if (handoff.next_priorities.length > 0) {
         handoff.next_priorities.forEach(item => {
           result += `- ${item}\n`;
@@ -235,5 +234,81 @@ ${memory.content}`;
     return result;
   }
 
+  /**
+   * Applies a template and formats the output
+   */
+  applyTemplate(templates: { [key: string]: MemoryTemplate }, templateName: string): string {
+    if (!templateName) {
+      throw new Error('Template name is required');
+    }
 
+    const template = templates[templateName];
+    if (!template) {
+      const availableTemplates = Object.keys(templates).join(', ');
+      throw new Error(`Template "${templateName}" not found. Available: ${availableTemplates}`);
+    }
+
+    let result = `📋 **Template: ${templateName}**\n**Category:** ${template.category}\n\n`;
+    
+    template.structure.forEach((step: { step: string; prompt: string }, index: number) => {
+      result += `**${index + 1}. ${step.step}**\n${step.prompt}\n\n`;
+    });
+
+    result += `\n💡 **Next Steps:**
+1. Answer each prompt above
+2. Create tasks based on your answers
+3. Use \`create_task\` for each action item`;
+
+    return result;
+  }
+
+  /**
+   * Exports memories to markdown format
+   */
+  exportMemoriesToMarkdown(memories: Memory[]): string {
+    if (memories.length === 0) {
+      return '';
+    }
+
+    let markdown = `## Memories\n\n`;
+    
+    memories.forEach(memory => {
+      markdown += `### ${memory.title}\n`;
+      markdown += `**Category:** ${memory.category} | **Importance:** ${memory.importance}\n`;
+      markdown += `**Tags:** ${memory.tags.join(', ')}\n\n`;
+      markdown += `${memory.content}\n\n`;
+      markdown += `---\n\n`;
+    });
+
+    return markdown;
+  }
+
+  /**
+   * Generates project management overview
+   */
+  generateOverview(
+    projects: Project[],
+    tasks: Task[],
+    memories: Memory[],
+    sessionCount: number,
+    templates: { [key: string]: MemoryTemplate }
+  ): string {
+    let result = `📊 **Project Management Overview**\n\n`;
+    
+    // Show project stats
+    result += `**Active Projects:** ${projects.length}\n`;
+    result += `**Total Tasks:** ${tasks.length}\n`;
+    result += `**Completed Tasks:** ${tasks.filter(t => t.completed).length}\n`;
+    result += `**Session Count:** ${sessionCount}\n\n`;
+
+    // Show available templates
+    result += `**Available Templates:**\n`;
+    Object.keys(templates).forEach(template => {
+      result += `- ${template}\n`;
+    });
+
+    result += `\n💡 Use \`get_project_status\` to see your current tasks.`;
+
+    return result;
+  }
 }

@@ -1,6 +1,6 @@
 import type { Project } from './Project.js';
 import type { Task } from './Task.js';
-import type { Memory } from './Memory.js';
+import type { Memory, MemoryTemplate } from './Memory.js';
 
 export interface ProjectDatabase {
   meta: {
@@ -12,7 +12,7 @@ export interface ProjectDatabase {
   projects: Project[];
   tasks: Task[];
   memories: Memory[];
-  templates: { [key: string]: any };
+  templates: { [key: string]: MemoryTemplate };
 }
 
 export interface HandoffSummary {

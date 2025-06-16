@@ -55,6 +55,18 @@ const memorySchema = z.object({
   project_id: z.string().optional(),
 });
 
+// Schema for MemoryTemplate
+const templateStepSchema = z.object({
+  step: z.string(),
+  prompt: z.string(),
+});
+
+const memoryTemplateSchema = z.object({
+  category: z.string(),
+  structure: z.array(templateStepSchema),
+  auto_trigger: z.array(z.string()).optional(),
+});
+
 // Main Database Schema
 export const projectDatabaseSchema = z.object({
   meta: z.object({
@@ -66,7 +78,7 @@ export const projectDatabaseSchema = z.object({
   projects: z.array(projectSchema).default([]),
   tasks: z.array(taskSchema).default([]),
   memories: z.array(memorySchema).default([]),
-  templates: z.record(z.any()).default({}),
+  templates: z.record(memoryTemplateSchema).default({}),
 });
 
 // Type inference for easy use
@@ -74,3 +86,4 @@ export type ProjectDatabase = z.infer<typeof projectDatabaseSchema>;
 export type Task = z.infer<typeof taskSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type Memory = z.infer<typeof memorySchema>;
+export type MemoryTemplate = z.infer<typeof memoryTemplateSchema>;

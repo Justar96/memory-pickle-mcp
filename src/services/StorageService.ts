@@ -1,30 +1,47 @@
+import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
+import * as path from 'path';
 import type { ProjectDatabase } from '../types/index.js';
-import { ValidationUtils } from '../utils/ValidationUtils.js';
+import { DATA_DIR, PROJECT_FILE, PROJECTS_FILE, TASKS_FILE, MEMORIES_FILE } from '../config/constants.js';
+import { DEFAULT_TEMPLATES } from '../config/templates.js';
+import { ensureDirectoryExists, fileExists, withFileLock } from '../utils/fileUtils.js';
+import { serializeToYaml, deserializeFromYaml, serializeDataToYaml, deserializeDataFromYaml } from '../utils/yamlUtils.js';
 
 /**
- * Service responsible for in-memory database operations with proper concurrency control.
- * Implements robust state management, memory optimization, and data integrity checks.
+ * Service responsible for database persistence and loading operations.
+ * All file operations are asynchronous and protected by a file lock.
  */
 export class StorageService {
-  private database: ProjectDatabase;
-  private operationLock: boolean = false;
-  private operationQueue: Array<{ resolve: Function, reject: Function, operation: Function }> = [];
-  private operationCount: number = 0;
-  private readonly maxOperations: number = 10000;
-  private readonly maxQueueSize: number = 100; // Prevent infinite queue growth
-  private isShuttingDown: boolean = false;
-  private weakRefSet: WeakSet<object> = new WeakSet();
-  private currentOperationTimeout: NodeJS.Timeout | null = null;
+  private readonly maxBackups = 3;
 
-  constructor() {
-    this.database = this.createDefaultDatabase();
+  private projectFile: string;
+  private dataDir: string;
+
+  constructor(projectFile: string = PROJECT_FILE) {
+    this.projectFile = projectFile;
+    this.dataDir = path.dirname(projectFile);
+
+    // Create directory synchronously to avoid race conditions
+    try {
+      if (!fsSync.existsSync(this.dataDir)) {
+        fsSync.mkdirSync(this.dataDir, { recursive: true, mode: 0o755 }); // More permissive for tests
+      }
+    } catch (error: any) {
+      // Only throw if it's not a permission issue (for tests)
+      if (error.code !== 'EACCES' && error.code !== 'EPERM') {
+        console.error("Failed to create data directory:", error);
+        throw new Error(`Cannot create data directory: ${this.dataDir}`);
+      }
+      console.warn("Directory creation failed, will retry on first operation:", error.message);
+    }
   }
 
   /**
-   * Executes an operation with proper concurrency control and error handling.
-   * Ensures operations are truly exclusive to prevent race conditions and data corruption.
+   * Executes an operation with an exclusive lock on the database file.
+   * Loads a fresh database copy, passes it to the operation, and commits changes
+   * only if the operation returns { commit: true }.
    *
-   * @param operation - Async function that receives the database and returns result with optional commit
+   * @param operation - Async function that receives the database and returns result with optional commit and changed parts
    * @returns The result from the operation
    */
   async runExclusive<T>(
@@ -34,113 +51,185 @@ export class StorageService {
       changedParts?: Set<'projects' | 'tasks' | 'memories' | 'meta'>;
     }>
   ): Promise<T> {
-    if (this.isShuttingDown) {
-      throw new Error('Storage service is shutting down');
-    }
-
-    // Implement proper exclusive locking with deadlock prevention
-    return new Promise<T>((resolve, reject) => {
-      const executeOperation = async () => {
-        if (this.operationLock) {
-          // Check queue size limit to prevent memory exhaustion
-          if (this.operationQueue.length >= this.maxQueueSize) {
-            reject(new Error('Operation queue full - system overloaded'));
-            return;
-          }
-          
-          // Queue the operation if another is running
-          this.operationQueue.push({ resolve, reject, operation: executeOperation });
-          return;
-        }
-
-        this.operationLock = true;
-        let databaseSnapshot: ProjectDatabase | null = null;
-        
-        try {
-          // Check for memory leak prevention
-          this.operationCount++;
-          if (this.operationCount > this.maxOperations) {
-            this.operationCount = 0;
-            this.forceGarbageCollection();
-          }
-
-          // Create optimized shallow copy with circular reference tracking
-          databaseSnapshot = this.createOptimizedSnapshot();
-
-          // Execute operation with timeout and cleanup
-          const timeoutPromise = new Promise((_, timeoutReject) => {
-            this.currentOperationTimeout = setTimeout(() => {
-              timeoutReject(new Error('Operation timeout - potential deadlock detected'));
-            }, 30000);
-          });
-
-          const operationPromise = operation(databaseSnapshot);
-          const { result, commit = false, changedParts } = await Promise.race([
-            operationPromise,
-            timeoutPromise
-          ]) as { result: T; commit?: boolean; changedParts?: Set<'projects' | 'tasks' | 'memories' | 'meta'> };
-
-          // Clear timeout since operation completed
-          if (this.currentOperationTimeout) {
-            clearTimeout(this.currentOperationTimeout);
-            this.currentOperationTimeout = null;
-          }
-
-          // Validate and commit atomically
-          if (commit) {
-            this.validateDatabaseIntegrity(databaseSnapshot, changedParts);
-            this.commitChanges(databaseSnapshot);
-          }
-
-          resolve(result);
-        } catch (error) {
-          // Clear timeout on error
-          if (this.currentOperationTimeout) {
-            clearTimeout(this.currentOperationTimeout);
-            this.currentOperationTimeout = null;
-          }
-          
-          // Rollback - database remains unchanged
-          if (databaseSnapshot) {
-            this.clearSnapshotReferences(databaseSnapshot);
-          }
-          reject(error);
-        } finally {
-          this.operationLock = false;
-          this.processQueue();
-        }
-      };
-
-      executeOperation();
+    return withFileLock(this.projectFile, async () => {
+      // Load fresh database copy
+      const database = await this.loadDatabaseInternal();
+      
+      // Execute operation with the database
+      const { result, commit = false, changedParts } = await operation(database);
+      
+      // Save only if commit is requested
+      if (commit) {
+        await this.saveDatabaseInternal(database, { changedParts });
+      }
+      
+      return result;
     });
   }
 
   /**
-   * Public method to load the project database.
-   * Returns an optimized copy of the in-memory database.
+   * Internal method to load database without lock (used within runExclusive)
+   */
+  private async loadDatabaseInternal(): Promise<ProjectDatabase> {
+    // Check for split-mode files first
+    const projectDir = path.dirname(this.projectFile);
+    const projectsFile = path.join(projectDir, 'projects.yaml');
+    const tasksFile = path.join(projectDir, 'tasks.yaml');
+    const memoriesFile = path.join(projectDir, 'memories.yaml');
+    const metaFile = path.join(projectDir, 'meta.yaml');
+    
+    const hasSplit =
+      (await fileExists(projectsFile)) ||
+      (await fileExists(tasksFile)) ||
+      (await fileExists(memoriesFile)) ||
+      (await fileExists(metaFile));
+
+    if (hasSplit) {
+      return this.loadSplitDatabase(projectsFile, tasksFile, memoriesFile);
+    }
+
+    // Legacy monolithic path
+    if (await fileExists(this.projectFile)) {
+      try {
+        const content = await fs.readFile(this.projectFile, 'utf8');
+        return deserializeFromYaml(content);
+      } catch (error) {
+        console.error('Error loading project database, trying backup:', error);
+        return this.loadFromBackup();
+      }
+    }
+    return this.createDefaultDatabase();
+  }
+
+  /**
+   * Internal method to save database without lock (used within runExclusive)
+   * Implements incremental saves - only writes files that have changed
+   */
+  private async saveDatabaseInternal(
+    database: ProjectDatabase,
+    options?: {
+      changedParts?: Set<'projects' | 'tasks' | 'memories' | 'meta'>
+    }
+  ): Promise<void> {
+    database.meta.last_updated = new Date().toISOString();
+    
+    // Define split file paths
+    const projectDir = path.dirname(this.projectFile);
+    const projectsFile = path.join(projectDir, 'projects.yaml');
+    const tasksFile = path.join(projectDir, 'tasks.yaml');
+    const memoriesFile = path.join(projectDir, 'memories.yaml');
+    const metaFile = path.join(projectDir, 'meta.yaml');
+    
+    // If no specific parts are marked as changed, save everything (backward compatibility)
+    const changedParts = options?.changedParts || new Set(['projects', 'tasks', 'memories', 'meta']);
+    
+    // Helper function for atomic writes with safe backup handling
+    const atomicWrite = async (filePath: string, content: string) => {
+      try {
+        // Try to rotate backup, but don't fail the write if backup fails
+        await this.rotateBackups(filePath);
+      } catch (backupError) {
+        console.warn(`Backup rotation failed for ${filePath}, proceeding with write:`, backupError);
+        // Continue with the write - better to have new data than no data
+      }
+
+      const tempFile = filePath + '.tmp';
+      await fs.writeFile(tempFile, content, 'utf8');
+      await fs.rename(tempFile, filePath);
+    };
+    
+    // Write only changed components
+    const writePromises: Promise<void>[] = [];
+    
+    if (changedParts.has('projects')) {
+      writePromises.push(atomicWrite(projectsFile, serializeDataToYaml(database.projects)));
+    }
+    
+    if (changedParts.has('tasks')) {
+      writePromises.push(atomicWrite(tasksFile, serializeDataToYaml(database.tasks)));
+    }
+    
+    if (changedParts.has('memories')) {
+      writePromises.push(atomicWrite(memoriesFile, serializeDataToYaml(database.memories)));
+    }
+    
+    if (changedParts.has('meta') || changedParts.size > 1) {
+      // Always update meta if any other part changed (for last_updated)
+      writePromises.push(atomicWrite(metaFile, serializeDataToYaml({
+        meta: database.meta,
+        templates: database.templates
+      })));
+    }
+    
+    await Promise.all(writePromises);
+
+    // Remove old monolithic file if it exists
+    if (await fileExists(this.projectFile)) {
+      await fs.unlink(this.projectFile);
+    }
+  }
+
+  /**
+   * Public method to load the project database (for backward compatibility)
    */
   async loadDatabase(): Promise<ProjectDatabase> {
-    return this.createOptimizedSnapshot();
+    return this.runExclusive(async (db) => ({ result: db, commit: false }));
   }
 
   /**
-   * Public method to save the project database.
-   * Updates the in-memory database with validation.
+   * Public method to save the project database (for backward compatibility)
    */
   async saveDatabase(database: ProjectDatabase): Promise<void> {
-    this.validateDatabaseIntegrity(database);
-    database.meta.last_updated = new Date().toISOString();
-    this.commitChanges(database);
+    await this.runExclusive(async () => {
+      await this.saveDatabaseInternal(database);
+      return { result: undefined, commit: false }; // Already committed internally
+    });
+  }
+
+  private async loadFromBackup(): Promise<ProjectDatabase> {
+    for (let i = 1; i <= this.maxBackups; i++) {
+      const backupFile = `${this.projectFile}.backup.${i}`;
+      if (await fileExists(backupFile)) {
+        try {
+          console.error(`Attempting to load from backup: ${backupFile}`);
+          const content = await fs.readFile(backupFile, 'utf8');
+          return deserializeFromYaml(content);
+        } catch (backupError) {
+          console.error(`Failed to load backup ${backupFile}:`, backupError);
+        }
+      }
+    }
+    console.error('All backups failed to load. Creating a new default database.');
+    return this.createDefaultDatabase();
   }
 
   /**
-   * Get direct reference to the database for shared state
+   * Rotates backups for the specified file path and keeps up to `maxBackups`.
+   * Creates a fresh `.backup.1` copy of the current file (if it exists) before overwrite.
    */
-  getDatabase(): ProjectDatabase {
-    return this.database;
+  private async rotateBackups(filePath: string): Promise<void> {
+    // Nothing to rotate if the target file hasn't been created yet
+    if (!(await fileExists(filePath))) return;
+
+    // Delete the oldest backup
+    const oldestBackup = `${filePath}.backup.${this.maxBackups}`;
+    if (await fileExists(oldestBackup)) {
+      await fs.unlink(oldestBackup);
+    }
+
+    // Shift existing backups n -> n+1
+    for (let i = this.maxBackups - 1; i >= 1; i--) {
+      const source = `${filePath}.backup.${i}`;
+      const dest = `${filePath}.backup.${i + 1}`;
+      if (await fileExists(source)) {
+        await fs.rename(source, dest);
+      }
+    }
+
+    // Create new backup.1 of current file
+    const firstBackup = `${filePath}.backup.1`;
+    await fs.copyFile(filePath, firstBackup);
   }
-
-
 
   /**
    * Creates a default empty database structure.
@@ -155,246 +244,119 @@ export class StorageService {
       projects: [],
       tasks: [],
       memories: [],
-      templates: {}
+      templates: DEFAULT_TEMPLATES
     };
   }
 
   /**
-   * Loads memories from the in-memory database (backward compatibility)
+   * Compose a ProjectDatabase from split files (read-only for step 1).
    */
-  async loadMemories(): Promise<any[]> {
-    return this.database.memories;
+  private async loadSplitDatabase(
+    projectsFile: string,
+    tasksFile: string,
+    memoriesFile: string
+  ): Promise<ProjectDatabase> {
+    // helper to safely read YAML arrays
+    const safeRead = async <T = any[]>(file: string): Promise<T> => {
+      if (await fileExists(file)) {
+        const content = await fs.readFile(file, 'utf8');
+        return deserializeDataFromYaml<T>(content);
+      }
+      // @ts-ignore – we know caller expects array
+      return [];
+    };
+
+    // Read meta file from same directory
+    const projectDir = path.dirname(projectsFile);
+    const metaFile = path.join(projectDir, 'meta.yaml');
+    
+    let meta = {
+      last_updated: new Date().toISOString(),
+      version: '2.0.0',
+      session_count: 0,
+    };
+    let templates = DEFAULT_TEMPLATES;
+
+    if (await fileExists(metaFile)) {
+      try {
+        const metaContent = await fs.readFile(metaFile, 'utf8');
+        const metaData = deserializeDataFromYaml(metaContent);
+        if (metaData.meta) meta = metaData.meta;
+        if (metaData.templates) templates = metaData.templates;
+      } catch (error) {
+        console.error('Error loading meta file, using defaults:', error);
+      }
+    }
+
+    const projects = await safeRead(projectsFile);
+    const tasks = await safeRead(tasksFile);
+    const memories = await safeRead(memoriesFile);
+
+    return {
+      meta,
+      projects,
+      tasks,
+      memories,
+      templates,
+    };
   }
 
   /**
-   * Saves memories to the in-memory database (backward compatibility)
+   * Checks if the database file exists
+   */
+  async databaseExists(): Promise<boolean> {
+    return fileExists(this.projectFile);
+  }
+
+  /**
+   * Gets the database file path
+   */
+  getDatabasePath(): string {
+    return this.projectFile;
+  }
+
+  /**
+   * Loads memories from separate file if exists (backward compatibility)
+   */
+  async loadMemories(): Promise<any[]> {
+    return this.runExclusive(async () => {
+      const MEMORIES_FILE = path.join(this.dataDir, 'memories.yaml');
+      if (await fileExists(MEMORIES_FILE)) {
+        try {
+          const content = await fs.readFile(MEMORIES_FILE, 'utf8');
+          const memories = deserializeDataFromYaml(content);
+          return { result: Array.isArray(memories) ? memories : [], commit: false };
+        } catch (error) {
+          console.error('Error loading legacy memories file:', error);
+        }
+      }
+      return { result: [], commit: false };
+    });
+  }
+
+  /**
+   * Saves memories to separate file (backward compatibility)
    */
   async saveMemories(memories: any[]): Promise<void> {
     if (!memories || memories.length === 0) return;
-    this.database.memories = memories;
-    this.database.meta.last_updated = new Date().toISOString();
+
+    await this.runExclusive(async () => {
+      const MEMORIES_FILE = path.join(this.dataDir, 'memories.yaml');
+      const tempFile = MEMORIES_FILE + '.tmp';
+      const yamlContent = serializeDataToYaml(memories);
+
+      await fs.writeFile(tempFile, yamlContent, 'utf8');
+      await fs.rename(tempFile, MEMORIES_FILE);
+
+      return { result: undefined, commit: false };
+    });
   }
 
   /**
-   * Returns markdown suggestion for persistent storage instead of file export
-   * Note: Removed console.log to prevent MCP stdio interference
+   * Saves export content to a file
    */
-  async saveExport(_filename: string, _content: string): Promise<void> {
-    // In-memory mode: Consider creating a markdown file manually
-    // Note: Console output removed to prevent MCP protocol interference
-    // Parameters prefixed with _ to indicate intentionally unused
-  }
-
-  /**
-   * Creates an optimized snapshot avoiding unnecessary deep copies
-   */
-  private createOptimizedSnapshot(): ProjectDatabase {
-    try {
-      // Create shallow copy of database structure
-      const snapshot: ProjectDatabase = {
-        meta: { ...this.database.meta },
-        projects: this.database.projects.map(p => ({ ...p })),
-        tasks: this.database.tasks.map(t => ({ 
-          ...t,
-          notes: t.notes ? [...t.notes] : [],
-          blockers: t.blockers ? [...t.blockers] : []
-        })),
-        memories: this.database.memories.map(m => ({ ...m })),
-        templates: { ...this.database.templates }
-      };
-      
-      // Track for circular reference detection
-      this.weakRefSet.add(snapshot);
-      return snapshot;
-    } catch (error) {
-      throw new Error(`Failed to create database snapshot: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * Commits changes atomically to the main database
-   */
-  private commitChanges(snapshot: ProjectDatabase): void {
-    snapshot.meta.last_updated = new Date().toISOString();
-    this.database = snapshot;
-  }
-
-  /**
-   * Clears references to prevent memory leaks
-   */
-  private clearSnapshotReferences(snapshot: ProjectDatabase): void {
-    if (this.weakRefSet.has(snapshot)) {
-      this.weakRefSet.delete(snapshot);
-    }
-  }
-
-  /**
-   * Processes queued operations safely to prevent deadlocks
-   */
-  private processQueue(): void {
-    // Process all queued operations, not just the first one
-    while (this.operationQueue.length > 0 && !this.operationLock && !this.isShuttingDown) {
-      const queueItem = this.operationQueue.shift();
-      if (queueItem) {
-        const { operation } = queueItem;
-        // Use setImmediate to prevent call stack overflow
-        setImmediate(() => {
-          try {
-            operation();
-          } catch (error) {
-            console.error('Queued operation failed:', error);
-          }
-        });
-        break; // Process one at a time to maintain order
-      }
-    }
-  }
-
-  /**
-   * Forces garbage collection with cleanup
-   */
-  private forceGarbageCollection(): void {
-    // Clear weak references
-    this.weakRefSet = new WeakSet();
-    
-    // Force GC if available
-    if (global.gc) {
-      global.gc();
-    }
-  }
-
-  /**
-   * Validates database integrity after operations using comprehensive validation
-   */
-  private validateDatabaseIntegrity(
-    database: ProjectDatabase,
-    changedParts?: Set<'projects' | 'tasks' | 'memories' | 'meta'>
-  ): void {
-    try {
-      // Full database validation
-      const validation = ValidationUtils.validateDatabase(database);
-      if (!validation.isValid) {
-        throw new Error(`Database validation failed: ${validation.errors.join('; ')}`);
-      }
-
-      // Additional specific validations based on changed parts
-      if (changedParts?.has('projects')) {
-        database.projects.forEach(project => {
-          const projectValidation = ValidationUtils.validateProject(project);
-          if (!projectValidation.isValid) {
-            throw new Error(`Project validation failed: ${projectValidation.errors.join('; ')}`);
-          }
-        });
-      }
-
-      if (changedParts?.has('tasks')) {
-        database.tasks.forEach(task => {
-          const taskValidation = ValidationUtils.validateTask(task);
-          if (!taskValidation.isValid) {
-            throw new Error(`Task validation failed: ${taskValidation.errors.join('; ')}`);
-          }
-        });
-      }
-
-      if (changedParts?.has('memories')) {
-        database.memories.forEach(memory => {
-          const memoryValidation = ValidationUtils.validateMemory(memory);
-          if (!memoryValidation.isValid) {
-            throw new Error(`Memory validation failed: ${memoryValidation.errors.join('; ')}`);
-          }
-        });
-      }
-
-    } catch (error) {
-      throw new Error(`Database integrity validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * Validates and sanitizes input data before operations
-   */
-  validateAndSanitizeInput(type: 'project', data: any): any;
-  validateAndSanitizeInput(type: 'task', data: any): any;
-  validateAndSanitizeInput(type: 'memory', data: any): any;
-  validateAndSanitizeInput(type: 'project' | 'task' | 'memory', data: any): any {
-    switch (type) {
-      case 'project':
-        const sanitizedProject = ValidationUtils.sanitizeProject(data);
-        const projectValidation = ValidationUtils.validateProject(sanitizedProject);
-        if (!projectValidation.isValid) {
-          throw new Error(`Project validation failed: ${projectValidation.errors.join('; ')}`);
-        }
-        return sanitizedProject;
-      
-      case 'task':
-        const sanitizedTask = ValidationUtils.sanitizeTask(data);
-        const taskValidation = ValidationUtils.validateTask(sanitizedTask);
-        if (!taskValidation.isValid) {
-          throw new Error(`Task validation failed: ${taskValidation.errors.join('; ')}`);
-        }
-        return sanitizedTask;
-      
-      case 'memory':
-        const sanitizedMemory = ValidationUtils.sanitizeMemory(data);
-        const memoryValidation = ValidationUtils.validateMemory(sanitizedMemory);
-        if (!memoryValidation.isValid) {
-          throw new Error(`Memory validation failed: ${memoryValidation.errors.join('; ')}`);
-        }
-        return sanitizedMemory;
-      
-      default:
-        throw new Error(`Unknown validation type: ${type}`);
-    }
-  }
-
-  /**
-   * Cleanup method to prevent memory leaks and maintain performance
-   */
-  cleanup(): void {
-    this.isShuttingDown = true;
-    this.operationCount = 0;
-    
-    // Reject all queued operations
-    while (this.operationQueue.length > 0) {
-      const { reject } = this.operationQueue.shift()!;
-      reject(new Error('Service shutting down'));
-    }
-    
-    // Clear references
-    this.clearSnapshotReferences(this.database);
-    this.forceGarbageCollection();
-  }
-
-  /**
-   * Shutdown method for graceful cleanup
-   */
-  async shutdown(): Promise<void> {
-    this.isShuttingDown = true;
-    
-    // Wait for current operation to complete
-    while (this.operationLock) {
-      await new Promise(resolve => setTimeout(resolve, 10));
-    }
-    
-    this.cleanup();
-  }
-
-  /**
-   * Get database statistics for monitoring
-   */
-  getStats(): {
-    projects: number;
-    tasks: number;
-    memories: number;
-    operationCount: number;
-    lastUpdated: string;
-  } {
-    return {
-      projects: this.database.projects.length,
-      tasks: this.database.tasks.length,
-      memories: this.database.memories.length,
-      operationCount: this.operationCount,
-      lastUpdated: this.database.meta.last_updated
-    };
+  async saveExport(filename: string, content: string): Promise<void> {
+    const exportPath = path.join(this.dataDir, filename);
+    await fs.writeFile(exportPath, content, 'utf8');
   }
 }
