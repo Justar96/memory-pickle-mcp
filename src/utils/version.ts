@@ -12,8 +12,10 @@ let cachedVersion: string | null = null;
 let cachedPackageJson: any = null;
 
 /**
- * Get the current version from package.json
- * Cached for performance
+ * Returns the current version string from the project's package.json.
+ *
+ * The version is cached after the first read to optimize repeated access.
+ * @returns The version string from package.json.
  */
 export function getVersion(): string {
   if (cachedVersion === null) {
@@ -24,8 +26,11 @@ export function getVersion(): string {
 }
 
 /**
- * Get the full package.json content
- * Cached for performance
+ * Returns the parsed contents of the project's `package.json` file.
+ *
+ * The result is cached after the first read to improve performance on subsequent calls.
+ *
+ * @returns The parsed `package.json` object.
  */
 export function getPackageJson(): any {
   if (cachedPackageJson === null) {
@@ -38,7 +43,9 @@ export function getPackageJson(): any {
 }
 
 /**
- * Get package name from package.json
+ * Returns the package name from the project's package.json file.
+ *
+ * @returns The value of the "name" field from package.json.
  */
 export function getPackageName(): string {
   const packageJson = getPackageJson();
@@ -46,7 +53,9 @@ export function getPackageName(): string {
 }
 
 /**
- * Clear the cache (useful for testing)
+ * Clears the cached version and package information.
+ *
+ * Use this to force a fresh read of `package.json` data, such as in testing scenarios.
  */
 export function clearVersionCache(): void {
   cachedVersion = null;

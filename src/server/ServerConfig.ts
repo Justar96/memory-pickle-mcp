@@ -21,26 +21,28 @@ export const SERVER_CAPABILITIES = {
 } as const;
 
 /**
- * Creates and configures the MCP server instance
+ * Creates and configures an MCP server instance with predefined settings and capabilities.
+ *
+ * @returns A new {@link Server} initialized with the server's configuration and capabilities.
  */
 export function createServer(): Server {
   return new Server(SERVER_CONFIG, SERVER_CAPABILITIES);
 }
 
 /**
- * Creates a new standard input/output (stdio) transport for the server.
+ * Creates and returns a transport for server communication over standard input and output streams.
  *
- * @returns An instance of {@link StdioServerTransport} for server communication over stdio.
+ * @returns A {@link StdioServerTransport} instance for stdio-based server communication.
  */
 export function createTransport(): StdioServerTransport {
   return new StdioServerTransport();
 }
 
 /**
- * Connects the server to the specified transport and begins handling MCP requests.
+ * Connects the server to the provided stdio transport and starts processing MCP requests.
  *
  * @remark
- * Does not log startup messages to avoid interfering with MCP stdio communication.
+ * Does not log startup messages to prevent interference with stdio-based MCP communication.
  */
 export async function startServer(server: Server, transport: StdioServerTransport): Promise<void> {
   await server.connect(transport);

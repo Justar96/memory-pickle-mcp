@@ -10,12 +10,9 @@ import { ALL_TOOLS } from '../tools/index.js';
 import type { MemoryPickleCore } from '../core/MemoryPickleCore.js';
 
 /**
- * Registers all Model Context Protocol (MCP) request handlers for tools, resources, and templates on the server.
+ * Registers all MCP request handlers for tools, resources, and templates on the server.
  *
- * Sets up endpoints for tool listing and invocation, resource enumeration and retrieval, and template listing, enabling MCP-compliant interactions through the provided server instance.
- *
- * @param server - The server instance on which to register MCP request handlers.
- * @param core - The core logic provider used for tool execution.
+ * Sets up endpoints for tool invocation, in-memory resource access, and resource template listing, enabling MCP-compliant operations using the provided core logic.
  */
 export function setupRequestHandlers(server: Server, core: MemoryPickleCore): void {
   // Tool handling
@@ -29,9 +26,9 @@ export function setupRequestHandlers(server: Server, core: MemoryPickleCore): vo
 }
 
 /**
- * Registers request handlers for listing available tools and invoking specific core tool methods.
+ * Registers MCP request handlers for listing available tools and invoking specific core tool methods.
  *
- * Sets up handlers to return the list of supported tools and to execute a restricted set of eight core methods by name with arguments. Only these whitelisted tool methods can be invoked; attempts to call other tools result in an error. If a requested tool is not implemented on the core, an error is thrown. Execution errors are caught and returned as error responses.
+ * Sets up endpoints to return the list of supported tools and to execute a restricted set of eight whitelisted core methods by name with arguments. Only these allowed tool methods can be invoked; attempts to call other tools or unimplemented methods result in errors. Execution errors are caught and returned as error responses.
  *
  * @throws {Error} If the requested tool name is not in the allowed list or is not implemented on the core.
  */
@@ -78,10 +75,11 @@ function setupToolHandlers(server: Server, core: MemoryPickleCore): void {
 }
 
 /**
- * Registers request handlers for in-memory resources.
+ * Registers MCP request handlers for listing and reading virtual in-memory resources.
  *
- * Provides endpoints to access in-memory data as virtual resources.
- * All data is served from memory without any file system dependencies.
+ * Exposes endpoints to enumerate and access session data and summaries as resources using the `memory://` protocol. All resources are dynamically generated from the in-memory state of the provided core instance.
+ *
+ * @remark Only the `memory://` protocol is supported. Attempting to access other protocols or unknown resource paths will result in an error.
  */
 function setupResourceHandlers(server: Server, core: MemoryPickleCore): void {
   // List resources - return virtual in-memory resources
@@ -148,7 +146,9 @@ function setupResourceHandlers(server: Server, core: MemoryPickleCore): void {
 }
 
 /**
- * Sets up template-related request handlers for in-memory resources
+ * Registers a request handler that lists available resource templates for in-memory resources.
+ *
+ * The handler advertises a single template for accessing in-memory resources such as "current-session" and "session-summary" via the `memory://` protocol.
  */
 function setupTemplateHandlers(server: Server): void {
   // List resource templates
