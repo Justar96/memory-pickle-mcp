@@ -1,5 +1,6 @@
 import type { ProjectDatabase } from '../types/index.js';
 import { ValidationUtils } from '../utils/ValidationUtils.js';
+import { getVersion } from '../utils/version.js';
 
 /**
  * Simplified in-memory data store with transaction safety.
@@ -115,7 +116,7 @@ export class InMemoryStore {
     return {
       meta: {
         last_updated: new Date().toISOString(),
-        version: "2.0.0",
+        version: getVersion(),
         session_count: 0
       },
       projects: [],

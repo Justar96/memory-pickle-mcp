@@ -120,7 +120,6 @@ For easier deployment across different environments:
 
 ### Environment Variables
 - `NODE_ENV`: Set to "production" for optimized performance
-- `MEMORY_PICKLE_WORKSPACE`: Explicit project directory (agent will create `.memory-pickle/` here)
 
 ### Advanced Configuration
 ```json
@@ -175,15 +174,15 @@ Memory Pickle uses clean text output for universal compatibility:
 
 ## Data Storage
 
-Memory Pickle stores data in `.memory-pickle/` directory:
-- `projects.yaml` - Project data and metadata
-- `tasks.yaml` - Task hierarchy and progress
-- `memories.yaml` - Persistent memories
-- `meta.yaml` - Session tracking and settings
+**Memory-Only Storage:**
+- All data exists only in memory during the current session
+- No files or directories are created on disk
+- Data is automatically cleared when the session ends
+- For permanent storage, use `generate_handoff_summary` and save as markdown files
 
 ## Testing Your Integration
 
-1. **Verify Server**: `node build/index.js` should output "Memory Pickle MCP server v1.3.0 running"
+1. **Verify Server**: `node build/index.js` should output "Memory Pickle MCP server v1.3.8 running"
 2. **Test with Inspector**: `npm run inspector` opens web interface at http://localhost:6274
 3. **Check Tools**: All 8 essential tools should be listed and callable
 4. **Test Basic Flow**:

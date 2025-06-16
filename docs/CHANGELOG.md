@@ -5,6 +5,25 @@ All notable changes to Memory Pickle MCP will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.8] - 2025-06-16
+
+### Changed
+- **Version consistency**: Updated all version references across codebase to 1.3.8
+- **Centralized version management**: Implemented single source of truth for version information
+- **Documentation alignment**: Updated all documentation to reflect current in-memory-only system
+- **Internal version constants**: Synchronized version numbers in configuration files
+
+### Added
+- **Automated version sync**: Created utility for dynamic version reading from package.json
+- **Version management script**: Automated synchronization of version references across files
+- **Version management documentation**: Comprehensive guide for centralized version control
+
+### Fixed
+- **Version mismatches**: Resolved inconsistent version references in constants and configuration
+- **Documentation accuracy**: Updated tool documentation and usage guides to match current implementation
+- **Output format consistency**: Replaced emoji examples with clean text format in all documentation
+- **System description alignment**: Removed outdated file storage references from all docs
+
 ## [1.3.1] - 2025-06-15
 
 ### Changed
@@ -87,9 +106,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial public release of Memory Pickle MCP
 - Complete rewrite from v2.0 internal version to production-ready v1.0
-- 13 MCP tools for project management and memory storage
+- 8 essential MCP tools for project management and memory storage
 - Modular architecture with service layer separation
-- Split-file YAML database system (projects, tasks, memories, meta)
+- In-memory data storage for session-based operation
 - Automatic session continuity and project status loading
 - Hierarchical task management with subtasks
 - Progress tracking with percentage completion
@@ -97,11 +116,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Blocker tracking and documentation
 - Handoff summary generation for session transitions
 - Memory system with categorization and search
-- Export functionality to Markdown
-- Project templates for guided planning
-- Atomic database operations with file locking
-- Backup rotation system
-- Schema validation with auto-repair
+- Clean text output for universal compatibility
 - NPM package distribution via `@cabbages/memory-pickle-mcp`
 
 ### Project Management Tools
@@ -120,17 +135,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `remember_this` - Store important decisions and context
 - `recall_context` - Search and retrieve memories
 
-### Utility Tools
-- `export_to_markdown` - Generate documentation from project data
-- `apply_template` - Guide users through structured planning
-- `list_categories` - Show overview and available templates
+### Session Management Tools
+- `generate_handoff_summary` - Create session transition summaries
 
 ### Technical Features
 - TypeScript with ES2022 target
 - MCP SDK v0.6.0 integration
 - Node.js 16+ compatibility
-- Automatic `.memory-pickle/` directory creation
-- Incremental database saves for performance
+- In-memory data storage with transaction safety
 - Comprehensive error handling and validation
 - Agent instruction system with priority levels
 - Cross-platform compatibility (Windows, macOS, Linux)
@@ -172,14 +184,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Migration Notes
 
-### From v2.0 Internal
-If upgrading from internal v2.0 development version:
-- Data format is compatible
-- New split-file system automatically migrates from monolithic format
-- All existing memories and projects preserved
+### From Previous Versions
+**Important:** Starting with v1.3.0, Memory Pickle uses in-memory-only storage:
+- No data persistence between sessions
+- No file system dependencies
+- Use `generate_handoff_summary` to create session summaries
+- Save important information as markdown files for permanent storage
 
-### From v1.x Legacy
-Legacy memory files are automatically imported on first run if main database is empty.
+### Session Continuity
+- During session: All data shared across tools
+- Between sessions: Use handoff summaries for context transfer
 
 ## Support
 

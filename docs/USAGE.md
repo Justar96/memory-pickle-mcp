@@ -31,8 +31,8 @@ Mention what you need to do:
 ```
 You: "I need to set up the database and create the post model"
 Agent: I've added those tasks:
-✅ Set up database
-✅ Create post model
+[DONE] Set up database
+[TODO] Create post model
 ```
 
 ### Updating Progress
@@ -42,7 +42,7 @@ Just say what you've completed:
 ```
 You: "I finished setting up the database"
 Agent: Great! Marking that as complete.
-✅ Set up database - Done!
+[DONE] Set up database - Complete!
 Project is now 33% complete.
 ```
 
@@ -53,10 +53,10 @@ Start any new session normally:
 ```
 You: "Let's continue working"
 Agent: [Automatically loads project]
-📊 Blog Website - 33% complete
-✅ Set up database
-⬜ Create post model
-⬜ Add authentication
+## Blog Website - 33% complete
+[DONE] Set up database
+[ ] Create post model
+[ ] Add authentication
 ```
 
 ## Advanced Features
@@ -68,10 +68,10 @@ Break down complex work:
 ```
 You: "The authentication needs login, signup, and password reset"
 Agent: I'll create subtasks for authentication:
-- ⬜ Authentication
-  - ⬜ Login functionality
-  - ⬜ Signup functionality  
-  - ⬜ Password reset
+- [ ] Authentication
+  - [ ] Login functionality
+  - [ ] Signup functionality
+  - [ ] Password reset
 ```
 
 ### Priority Management
@@ -81,7 +81,7 @@ Mention urgency:
 ```
 You: "The login is critical - users can't access anything without it"
 Agent: Setting login as critical priority.
-🔴 Login functionality [critical]
+[CRITICAL] Login functionality
 ```
 
 ### Progress Tracking
@@ -91,7 +91,7 @@ Update progress naturally:
 ```
 You: "Login is about 80% done, just need to add error handling"
 Agent: Updated login progress to 80%.
-📊 Login functionality - 80% complete
+## Login functionality - 80% complete
 Note: Need to add error handling
 ```
 
@@ -102,11 +102,11 @@ Mention what's blocking you:
 ```
 You: "Can't deploy until we get the SSL certificate"
 Agent: I'll mark deployment as blocked.
-🚨 Deploy to production
+[BLOCKED] Deploy to production
 Blocked: Waiting for SSL certificate
 ```
 
-*Note: In v1.3.0, progress updates and blocker tracking are handled by the consolidated `update_task` tool.*
+*Note: Progress updates and blocker tracking are handled by the consolidated `update_task` tool.*
 
 ### Session Handoffs
 
@@ -152,7 +152,7 @@ The agent automatically remembers important decisions:
 ```
 You: "We decided to use PostgreSQL instead of MongoDB for better consistency"
 Agent: I'll remember that decision.
-💾 Stored: Database choice - PostgreSQL for consistency
+[STORED] Database choice - PostgreSQL for consistency
 ```
 
 ### Recalling Information
@@ -160,17 +160,17 @@ Agent: I'll remember that decision.
 ```
 You: "What did we decide about the database?"
 Agent: Found this memory:
-📝 Database choice - PostgreSQL for consistency
+[MEMORY] Database choice - PostgreSQL for consistency
 Stored: 2 days ago
 ```
 
 ## Data Organization
 
-Your data is stored in `.memory-pickle/`:
-- `projects.yaml` - All projects
-- `tasks.yaml` - All tasks and progress  
-- `memories.yaml` - Important notes
-- `meta.yaml` - Settings and session tracking
+**Memory-Only Storage:**
+- All data exists only in memory during the current session
+- No files or directories are created on disk
+- Data is automatically cleared when the session ends
+- For permanent storage, use `generate_handoff_summary` and save as markdown files
 
 ## Tips for Best Results
 
@@ -186,24 +186,24 @@ Your data is stored in `.memory-pickle/`:
 ### Daily Standup Style
 ```
 You: "Yesterday I finished the user auth, today I'm working on the dashboard"
-Agent: ✅ User auth - Completed!
-📋 Added: Dashboard implementation
+Agent: [DONE] User auth - Completed!
+[ADDED] Dashboard implementation
 ```
 
 ### Planning Session
 ```
 You: "For the dashboard, I need charts, user stats, and settings"
 Agent: Breaking down dashboard:
-- ⬜ Dashboard
-  - ⬜ Charts component
-  - ⬜ User statistics
-  - ⬜ Settings panel
+- [ ] Dashboard
+  - [ ] Charts component
+  - [ ] User statistics
+  - [ ] Settings panel
 ```
 
 ### Problem Solving
 ```
 You: "The API is returning 500 errors, I think it's the database connection"
-Agent: 🚨 API issues - 500 errors
+Agent: [ERROR] API issues - 500 errors
 Blocker: Database connection problems
 ```
 
