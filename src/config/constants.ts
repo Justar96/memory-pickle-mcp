@@ -3,8 +3,10 @@
  * All file system dependencies removed for pure in-memory mode
  */
 
+import { getVersion } from '../utils/version.js';
+
 // Server configuration
 export const SERVER_CONFIG = {
   name: "memory-pickle",
-  version: "1.3.6",
+  version: getVersion(),
 } as const;

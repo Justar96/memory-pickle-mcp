@@ -1,12 +1,13 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { getVersion } from '../utils/version.js';
 
 /**
  * MCP Server configuration
  */
 export const SERVER_CONFIG = {
   name: "memory-pickle-mcp",
-  version: "1.3.7",
+  version: getVersion(),
 } as const;
 
 /**

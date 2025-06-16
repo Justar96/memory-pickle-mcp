@@ -1,4 +1,4 @@
-# Available Tools (v1.3.0)
+# Available Tools (v1.3.8)
 
 Memory Pickle MCP provides 8 essential tools for streamlined project management and memory storage. The agent uses these automatically - you don't need to call them directly.
 
@@ -128,7 +128,7 @@ project_id: "proj_123"
 - `create_project` - Start new projects (auto-becomes current)
 - `set_current_project` - Switch between multiple projects
 
-## Summary of Changes in v1.3.0
+## Summary of Changes in v1.3.8
 
 **Removed Tools:**
 - `toggle_task` → Consolidated into `update_task`

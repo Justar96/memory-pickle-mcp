@@ -127,6 +127,7 @@ npm install -g @cabbages/memory-pickle-mcp
 - [Installation Guide](docs/INSTALLATION.md) - Setup and troubleshooting
 - [Tools Reference](docs/TOOLS.md) - Complete tool documentation
 - [Usage Guide](docs/USAGE.md) - Workflows and best practices
+- [Version Management](docs/VERSION-MANAGEMENT.md) - Centralized version control
 - [Changelog](docs/CHANGELOG.md) - Version history
 
 ## Features
@@ -169,7 +170,7 @@ Apache 2.0
 
 ## Version
 
-Current: 1.3.1
+Current: 1.3.8
 
 Recent changes:
 - Simplified to memory-only storage (no file persistence)
