@@ -1,7 +1,7 @@
 {
   "name": "@cabbages-pre/memory-pickle-mcp-pre",
-  "version": "1.3.6",
-  "description": "Simplified MCP server for AI agent project management - 8 essential tools for persistent memory and task tracking",
+  "version": "1.3.8",
+  "description": "Simplified MCP server for AI agent project management - 8 essential tools for session memory and task tracking",
   "keywords": [
     "mcp",
     "model-context-protocol",
@@ -11,8 +11,9 @@
     "agent-memory",
     "checklist",
     "todo",
-    "persistent-state",
-    "session-continuity"
+    "session-memory",
+    "session-continuity",
+    "in-memory"
   ],
   "author": "Cabbages Code",
   "license": "Apache-2.0",
@@ -22,10 +23,10 @@
   },
   "files": [
     "build",
-    "mcp.config.json",
     "agent-instructions-simplified.md",
     "README.md",
-    "INTEGRATION-GUIDE.md"
+    "INTEGRATION-GUIDE.md",
+    "docs"
   ],
   "scripts": {
     "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
@@ -33,7 +34,9 @@
     "watch": "tsc --watch",
     "inspector": "npx @modelcontextprotocol/inspector build/index.js",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
-    "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage"
+    "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "update-version": "node scripts/update-version.mjs",
+    "version": "npm run update-version && git add ."
   },
   "repository": {
     "type": "git",
@@ -41,14 +44,11 @@
   },
   "homepage": "https://pickle.cabbages.work",
   "mcp": {
-    "configFile": "mcp.config.json",
     "instructions": "agent-instructions-simplified.md"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "0.6.0",
-    "@types/js-yaml": "^4.0.9",
     "axios": "^1.9.0",
-    "js-yaml": "^4.1.0",
     "zod": "^3.25.64"
   },
   "devDependencies": {

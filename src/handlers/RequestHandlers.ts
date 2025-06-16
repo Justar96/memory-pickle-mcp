@@ -6,28 +6,31 @@ import {
   ReadResourceRequestSchema,
   ListResourceTemplatesRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import * as fs from 'fs';
-import * as path from 'path';
-import { DATA_DIR, PROJECTS_FILE, TASKS_FILE, MEMORIES_FILE } from '../config/constants.js';
 import { ALL_TOOLS } from '../tools/index.js';
 import type { MemoryPickleCore } from '../core/MemoryPickleCore.js';
 
 /**
- * Sets up all MCP request handlers for the server
+ * Registers all MCP request handlers for tools, resources, and templates on the server.
+ *
+ * Sets up endpoints for tool invocation, in-memory resource access, and resource template listing, enabling MCP-compliant operations using the provided core logic.
  */
 export function setupRequestHandlers(server: Server, core: MemoryPickleCore): void {
   // Tool handling
   setupToolHandlers(server, core);
-  
+
   // Resource handling
-  setupResourceHandlers(server);
-  
+  setupResourceHandlers(server, core);
+
   // Template handling
   setupTemplateHandlers(server);
 }
 
 /**
- * Sets up tool-related request handlers
+ * Registers MCP request handlers for listing available tools and invoking specific core tool methods.
+ *
+ * Sets up endpoints to return the list of supported tools and to execute a restricted set of eight whitelisted core methods by name with arguments. Only these allowed tool methods can be invoked; attempts to call other tools or unimplemented methods result in errors. Execution errors are caught and returned as error responses.
+ *
+ * @throws {Error} If the requested tool name is not in the allowed list or is not implemented on the core.
  */
 function setupToolHandlers(server: Server, core: MemoryPickleCore): void {
   // List available tools
@@ -41,13 +44,12 @@ function setupToolHandlers(server: Server, core: MemoryPickleCore): void {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
-    // Simple whitelist of allowed methods
+    // Simplified whitelist of core methods (8 tools)
     const allowedMethods = [
-      'create_project', 'get_project_status', 'update_project', 'list_projects', 'set_current_project',
-      'create_task', 'update_task', 'toggle_task', 'list_tasks', 'get_tasks', 'update_task_progress',
-      'remember_this', 'recall_context', 'add_memory', 'search_memories',
-      'export_to_markdown', 'list_templates', 'list_categories', 'generate_handoff_summary',
-      'validate_database', 'check_workflow_state', 'repair_orphaned_data'
+      'get_project_status', 'create_project', 'set_current_project',
+      'create_task', 'update_task',
+      'remember_this', 'recall_context',
+      'generate_handoff_summary'
     ];
 
     if (!allowedMethods.includes(name)) {
@@ -73,175 +75,92 @@ function setupToolHandlers(server: Server, core: MemoryPickleCore): void {
 }
 
 /**
- * Sets up resource-related request handlers
+ * Registers MCP request handlers for listing and reading virtual in-memory resources.
+ *
+ * Exposes endpoints to enumerate and access session data and summaries as resources using the `memory://` protocol. All resources are dynamically generated from the in-memory state of the provided core instance.
+ *
+ * @remark Only the `memory://` protocol is supported. Attempting to access other protocols or unknown resource paths will result in an error.
  */
-function setupResourceHandlers(server: Server): void {
-  // List resources
+function setupResourceHandlers(server: Server, core: MemoryPickleCore): void {
+  // List resources - return virtual in-memory resources
   server.setRequestHandler(ListResourcesRequestSchema, async () => {
-    const resources = [];
-
-    // Check for split files (current architecture)
-    const metaFile = path.join(DATA_DIR, 'meta.yaml');
-    if (fs.existsSync(PROJECTS_FILE)) {
-      resources.push({
-        uri: `file:///projects.yaml`,
-        mimeType: "text/yaml",
-        name: "Projects",
-        description: "Project data and metadata"
-      });
-    }
-
-    if (fs.existsSync(TASKS_FILE)) {
-      resources.push({
-        uri: `file:///tasks.yaml`,
-        mimeType: "text/yaml",
-        name: "Tasks",
-        description: "Task hierarchy and progress tracking"
-      });
-    }
-
-    if (fs.existsSync(MEMORIES_FILE)) {
-      resources.push({
-        uri: `file:///memories.yaml`,
-        mimeType: "text/yaml",
-        name: "Memories",
-        description: "Persistent memory storage and notes"
-      });
-    }
-
-    if (fs.existsSync(metaFile)) {
-      resources.push({
-        uri: `file:///meta.yaml`,
-        mimeType: "text/yaml",
-        name: "Metadata",
-        description: "Session tracking, templates, and configuration"
-      });
-    }
-
-    // Check for exported markdown files
-    const exportFile = path.join(DATA_DIR, 'project-export.md');
-    if (fs.existsSync(exportFile)) {
-      resources.push({
-        uri: `file:///project-export.md`,
+    const resources = [
+      {
+        uri: `memory:///current-session`,
+        mimeType: "application/json",
+        name: "Current Session Data",
+        description: "In-memory session data including projects, tasks, and memories"
+      },
+      {
+        uri: `memory:///session-summary`,
         mimeType: "text/markdown",
-        name: "Project Export",
-        description: "Exported project summary in markdown format"
-      });
-    }
+        name: "Session Summary",
+        description: "Current session summary in markdown format"
+      }
+    ];
 
     return { resources };
   });
 
-  // Read resources
+  // Read resources - serve in-memory data
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     try {
       const url = new URL(request.params.uri);
-      console.error(`Debug: Reading resource URI: ${request.params.uri}`);
-      console.error(`Debug: URL protocol: ${url.protocol}, pathname: ${url.pathname}`);
 
-      if (url.protocol === 'file:') {
-        // Extract filename from URL - handle both with and without leading slash
-        let fileName = url.pathname;
-        if (fileName.startsWith('/')) {
-          fileName = fileName.substring(1);
-        }
+      if (url.protocol === 'memory:') {
+        const resourcePath = url.pathname;
 
-        // Validate that fileName is not empty after processing
-        if (!fileName || fileName.trim() === '') {
-          throw new Error(`Invalid resource URI: filename is empty or missing. URI: ${request.params.uri}`);
-        }
+        switch (resourcePath) {
+          case '/current-session':
+            // Return current in-memory database as JSON
+            const database = core.getDatabase();
+            return {
+              contents: [{
+                uri: request.params.uri,
+                mimeType: "application/json",
+                text: JSON.stringify(database, null, 2)
+              }]
+            };
 
-        console.error(`Debug: Processed fileName: "${fileName}"`);
+          case '/session-summary':
+            // Return session summary as markdown
+            const summary = await core.generate_handoff_summary({});
+            return {
+              contents: [{
+                uri: request.params.uri,
+                mimeType: "text/markdown",
+                text: summary.content[0].text
+              }]
+            };
 
-        // Additional validation for suspicious filenames
-        if (fileName === '.' || fileName === '..' || fileName.includes('..')) {
-          throw new Error(`Invalid resource URI: unsafe filename "${fileName}". URI: ${request.params.uri}`);
-        }
-
-        console.error(`Debug: Extracted filename: ${fileName}`);
-
-        // Map common filenames to actual file paths
-        let actualFilePath;
-        switch (fileName) {
-          case 'projects.yaml':
-            actualFilePath = PROJECTS_FILE;
-            break;
-          case 'tasks.yaml':
-            actualFilePath = TASKS_FILE;
-            break;
-          case 'memories.yaml':
-            actualFilePath = MEMORIES_FILE;
-            break;
-          case 'meta.yaml':
-            actualFilePath = path.join(DATA_DIR, 'meta.yaml');
-            break;
-          case 'project-export.md':
-            actualFilePath = path.join(DATA_DIR, 'project-export.md');
-            break;
           default:
-            // Fallback to direct path construction
-            actualFilePath = path.join(DATA_DIR, fileName);
-        }
-
-        console.error(`Debug: Resolved file path: ${actualFilePath}`);
-
-        // Security validation - ensure resolved path is within data directory
-        const resolvedPath = path.resolve(actualFilePath);
-        const dataDir = path.resolve(DATA_DIR);
-
-        if (!resolvedPath.startsWith(dataDir)) {
-          throw new Error('Access denied: File outside allowed directory');
-        }
-
-        if (fs.existsSync(resolvedPath)) {
-          // Check if it's actually a file, not a directory
-          const stats = fs.statSync(resolvedPath);
-          if (stats.isDirectory()) {
-            throw new Error(`Path is a directory, not a file: ${resolvedPath}. Original URI: ${request.params.uri}, processed fileName: "${fileName}". This usually indicates a malformed resource URI.`);
-          }
-
-          const content = fs.readFileSync(resolvedPath, 'utf8');
-
-          // Determine MIME type based on file extension
-          const ext = path.extname(fileName).toLowerCase();
-          const mimeType = ext === '.md' ? 'text/markdown' : 'text/yaml';
-
-          console.error(`Debug: Successfully read file, content length: ${content.length}`);
-
-          return {
-            contents: [{
-              uri: request.params.uri,
-              mimeType: mimeType,
-              text: content
-            }]
-          };
-        } else {
-          throw new Error(`File does not exist: ${resolvedPath}. Original URI: ${request.params.uri}, processed fileName: "${fileName}"`);
+            throw new Error(`Unknown memory resource: ${resourcePath}`);
         }
       }
 
-      throw new Error(`Unsupported protocol: ${url.protocol}`);
+      throw new Error(`Unsupported protocol: ${url.protocol}. Only memory:// protocol is supported in in-memory mode.`);
     } catch (error) {
-      console.error(`Debug: Error reading resource:`, error);
       throw error;
     }
   });
 }
 
 /**
- * Sets up template-related request handlers
+ * Registers a request handler that lists available resource templates for in-memory resources.
+ *
+ * The handler advertises a single template for accessing in-memory resources such as "current-session" and "session-summary" via the `memory://` protocol.
  */
 function setupTemplateHandlers(server: Server): void {
   // List resource templates
   server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
     const templates = [];
 
-    // File access template - allows accessing any file in the data directory
+    // In-memory resource access template
     templates.push({
-      uriTemplate: "file:///{filename}",
-      name: "Data File Access",
-      description: "Access any YAML or Markdown file in the memory pickle data directory by filename (e.g., projects.yaml, tasks.yaml, memories.yaml, meta.yaml, project-export.md)",
-      mimeType: "text/plain"
+      uriTemplate: "memory:///{resource}",
+      name: "In-Memory Resource Access",
+      description: "Access in-memory resources (current-session, session-summary)",
+      mimeType: "application/json"
     });
 
     return { resourceTemplates: templates };

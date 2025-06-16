@@ -89,10 +89,7 @@ jspm_packages/
 ehthumbs.db
 Thumbs.db
 
-# Local development data
-.memory-pickle/
-*.yaml
-*.yml
+# Configuration files
 !mcp.config.json
 !mcp.config.example.json
 
@@ -103,8 +100,8 @@ test-*.cjs
 FINAL_BUG_VERIFICATION_TEST.js
 QUICK_VERIFICATION_TEST.js
 
-# Development scripts
-scripts/
+# Keep scripts directory (contains version management)
+# scripts/
 
 # Private development files
 .kilocode/

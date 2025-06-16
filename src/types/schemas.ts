@@ -3,6 +3,19 @@ import { z } from 'zod';
 // Schemas for primitive/reused types
 const prioritySchema = z.enum(['critical', 'high', 'medium', 'low']);
 
+// Line range schema for code/content references
+const lineRangeSchema = z.object({
+  start_line: z.number().int().positive(),
+  end_line: z.number().int().positive(),
+  file_path: z.string().optional(),
+}).refine(
+  (data) => data.start_line <= data.end_line,
+  {
+    message: "start_line must be less than or equal to end_line",
+    path: ["start_line"]
+  }
+).optional();
+
 export const taskSchema = z.object({
   id: z.string(),
   project_id: z.string(),
@@ -19,6 +32,7 @@ export const taskSchema = z.object({
   subtasks: z.array(z.string()).optional().default([]),
   notes: z.array(z.string()).optional().default([]),
   blockers: z.array(z.string()).optional().default([]),
+  line_range: lineRangeSchema,
 });
 
 export const milestoneSchema = z.object({
@@ -53,18 +67,7 @@ const memorySchema = z.object({
   related_memories: z.array(z.string()).optional().default([]),
   task_id: z.string().optional(),
   project_id: z.string().optional(),
-});
-
-// Schema for MemoryTemplate
-const templateStepSchema = z.object({
-  step: z.string(),
-  prompt: z.string(),
-});
-
-const memoryTemplateSchema = z.object({
-  category: z.string(),
-  structure: z.array(templateStepSchema),
-  auto_trigger: z.array(z.string()).optional(),
+  line_range: lineRangeSchema,
 });
 
 // Main Database Schema
@@ -78,7 +81,7 @@ export const projectDatabaseSchema = z.object({
   projects: z.array(projectSchema).default([]),
   tasks: z.array(taskSchema).default([]),
   memories: z.array(memorySchema).default([]),
-  templates: z.record(memoryTemplateSchema).default({}),
+  templates: z.record(z.any()).default({}),
 });
 
 // Type inference for easy use
@@ -86,4 +89,5 @@ export type ProjectDatabase = z.infer<typeof projectDatabaseSchema>;
 export type Task = z.infer<typeof taskSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type Memory = z.infer<typeof memorySchema>;
-export type MemoryTemplate = z.infer<typeof memoryTemplateSchema>;
+export type Milestone = z.infer<typeof milestoneSchema>;
+export type LineRange = z.infer<typeof lineRangeSchema>;

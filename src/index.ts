@@ -31,7 +31,12 @@ import { setupRequestHandlers } from './handlers/RequestHandlers.js';
 import { createServer, createTransport, startServer } from './server/ServerConfig.js';
 
 /**
- * Main server startup function
+ * Initializes and launches the Memory Pickle MCP Server.
+ *
+ * Sets up the core logic, configures the server, registers request handlers, establishes the transport layer, and starts the server process.
+ *
+ * @remark
+ * If startup fails, the process exits with code 1 without logging to standard output or error to prevent interference with MCP standard I/O.
  */
 async function main(): Promise<void> {
   try {
