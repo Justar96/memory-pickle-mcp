@@ -3,13 +3,13 @@ import * as os from 'os';
 import * as fs from 'fs';
 
 /**
- * Determines the appropriate data directory for memory-pickle, using environment overrides and prioritized fallbacks.
+ * Resolves the data directory path for memory-pickle persistence, using environment variables and prioritized fallbacks.
  *
- * If the `MEMORY_PICKLE_WORKSPACE` environment variable is set, returns a `.memory-pickle` subdirectory within that workspace, regardless of its existence or writability. Otherwise, checks a prioritized list of candidate directories (current working directory, project root, user home, temp directory) and returns the first existing and writable directory. If none are writable, returns the preferred path without creating it.
+ * If the `MEMORY_PICKLE_WORKSPACE` environment variable is set, returns a `.memory-pickle` subdirectory within that workspace. Otherwise, checks a prioritized list of candidate directories—current working directory, project root, user home, and a temp directory—and returns the first existing and writable directory. If none are writable or exist, returns the preferred path without creating it.
  *
- * @returns The resolved data directory path for memory-pickle persistence.
+ * @returns The resolved path to the data directory for memory-pickle.
  *
- * @remark This function does not create directories; users must create the `.memory-pickle` folder manually if it does not exist.
+ * @remark This function does not create directories; users must manually create the `.memory-pickle` folder if it does not exist.
  */
 function getDataDirectory(): string {
   // If workspace is explicitly set, use ONLY that location (no fallbacks)
@@ -94,11 +94,11 @@ function getDataDirectory(): string {
 }
 
 /**
- * Attempts to locate the project root directory by searching for common project indicator files or directories.
+ * Searches upward from the current working directory to find a project root by detecting common project indicator files or directories.
  *
- * Traverses up to 10 parent directories from the current working directory, checking for files such as `package.json`, `.git`, `tsconfig.json`, `pyproject.toml`, `Cargo.toml`, or `.project-root`. If any are found, returns the path to a `.memory-pickle` directory within that project root. Returns `null` if no project root is detected within the search depth.
+ * Checks up to 10 parent directories for indicators such as `package.json`, `.git`, `tsconfig.json`, `pyproject.toml`, `Cargo.toml`, or `.project-root`. If found, returns the path to a `.memory-pickle` directory within the detected project root.
  *
- * @returns The path to the `.memory-pickle` directory in the project root, or `null` if no project root is found.
+ * @returns The path to the `.memory-pickle` directory in the project root, or `null` if no project root is found within the search depth.
  */
 function findProjectRoot(): string | null {
   let currentDir = process.cwd();
@@ -135,12 +135,12 @@ function findProjectRoot(): string | null {
 let _cachedDataDir: string | null = null;
 
 /**
- * Returns the resolved data directory path for memory-pickle, using a cached value if available.
+ * Returns the absolute path to the data directory used by memory-pickle, using a cached value if available.
  *
- * The directory is determined based on environment variables and writable locations, and is cached for subsequent calls.
- * Use {@link clearDataDirCache} to force recomputation if the environment changes.
+ * The directory is resolved based on environment variables and writable locations, and is cached for efficiency.
+ * Call {@link clearDataDirCache} to force recomputation if the environment changes.
  *
- * @returns The absolute path to the data directory.
+ * @returns The absolute path to the resolved data directory.
  */
 export function getDataDir(): string {
   if (!_cachedDataDir) {
@@ -150,10 +150,10 @@ export function getDataDir(): string {
 }
 
 /**
- * Clears the cached data directory path, forcing it to be recomputed on the next access.
+ * Clears the cached data directory path so it will be recomputed on the next access.
  *
  * @remark
- * Intended for testing or scenarios where the environment may have changed and the data directory should be recalculated.
+ * Use this when environment variables or workspace configuration may have changed, or during testing.
  */
 export function clearDataDirCache(): void {
   _cachedDataDir = null;
@@ -163,41 +163,47 @@ export function clearDataDirCache(): void {
 // Use getDataDir() function instead for dynamic resolution
 
 /**
- * Returns the full path to the `project-data.yaml` file in the current data directory.
+ * Returns the absolute path to the `project-data.yaml` file within the resolved data directory.
  *
- * The data directory is determined dynamically and may change if the environment or configuration changes.
+ * The data directory is determined dynamically based on environment variables and project structure, and may change if the environment or configuration changes.
  */
 export function getProjectFile(): string {
   return path.join(getDataDir(), 'project-data.yaml');
 }
 
 /**
- * Returns the full path to the `projects.yaml` file in the current memory-pickle data directory.
+ * Returns the absolute path to the `projects.yaml` file within the resolved memory-pickle data directory.
+ *
+ * The data directory is determined dynamically based on environment variables and project structure.
  */
 export function getProjectsFile(): string {
   return path.join(getDataDir(), 'projects.yaml');
 }
 
 /**
- * Returns the full path to the `tasks.yaml` file in the current memory-pickle data directory.
+ * Returns the absolute path to the `tasks.yaml` file within the resolved memory-pickle data directory.
+ *
+ * The data directory is determined dynamically based on environment variables and project structure.
  */
 export function getTasksFile(): string {
   return path.join(getDataDir(), 'tasks.yaml');
 }
 
 /**
- * Returns the full path to the `memories.yaml` data file in the current memory-pickle data directory.
+ * Returns the absolute path to the `memories.yaml` data file within the current memory-pickle data directory.
  *
- * The data directory is determined dynamically and may change based on environment variables or workspace configuration.
+ * The data directory is resolved dynamically based on environment variables and workspace configuration.
  *
- * @returns The absolute path to `memories.yaml` within the resolved data directory.
+ * @returns The full path to `memories.yaml` in the resolved data directory.
  */
 export function getMemoriesFile(): string {
   return path.join(getDataDir(), 'memories.yaml');
 }
 
 /**
- * Returns the full path to the memory-pickle configuration YAML file in the current data directory.
+ * Returns the absolute path to the `memory-config.yaml` configuration file within the resolved data directory.
+ *
+ * The data directory is determined dynamically based on environment variables and project structure.
  */
 export function getConfigFile(): string {
   return path.join(getDataDir(), 'memory-config.yaml');
