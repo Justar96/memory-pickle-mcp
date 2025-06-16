@@ -17,6 +17,18 @@ Add this to your MCP configuration:
 }
 ```
 
+for pre-release version:
+```json
+{
+  "mcpServers": {
+    "memory-pickle": {
+      "command": "npx",
+      "args": ["-y", "@cabbages-pre/memory-pickle-mcp-pre"]
+    }
+  }
+}
+```
+
 That's it! Your agent will now remember your projects and tasks across sessions.
 
 ## 🔗 Links
@@ -295,9 +307,10 @@ Apache 2.0 License - Use freely in your projects!
 
 ## 📊 Version
 
-**Current:** 1.2.0 (MEM-Pickle MCP - agent planing tools :))
-
+**Current:** 1.2.1
+**Pre-release:** 1.3.8 
 **Package:** [@cabbages/memory-pickle-mcp](https://www.npmjs.com/package/@cabbages/memory-pickle-mcp)
+
 
 ### Recent Updates (v1.2.0)
 - ✅ Fixed MemoryPickleCore compilation issues after refactoring
