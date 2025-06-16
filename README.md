@@ -1,6 +1,8 @@
 # Memory Pickle MCP
 
 Project management and session memory for AI agents. Provides 8 essential MCP tools for tracking projects, tasks, and context during chat sessions.
+
+### suggestion
 *for kilo , cline , roo perform best with code mode your agent will not lose track. there are some struggle with HITL*
 
 ## Quick Start
