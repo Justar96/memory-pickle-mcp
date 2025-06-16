@@ -282,8 +282,11 @@ Apache 2.0 License - Use freely in your projects!
 ## 📊 Version
 
 **Current:** 1.2.1
-**Pre-release:** 1.3.8 
 **Package:** [@cabbages/memory-pickle-mcp](https://www.npmjs.com/package/@cabbages/memory-pickle-mcp)
+
+### Pre-release (v1.3.xx)
+
+**Pre-release:** 1.3.8 
 **Pre-release package:** [@cabbages-pre/memory-pickle-mcp-pre](https://www.npmjs.com/package/@cabbages-pre/memory-pickle-mcp-pre)
 
 ### Upcoming (v1.3.0)
