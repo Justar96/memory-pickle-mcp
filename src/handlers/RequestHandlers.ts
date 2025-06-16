@@ -13,10 +13,7 @@ import { ALL_TOOLS } from '../tools/index.js';
 import type { MemoryPickleCore } from '../core/MemoryPickleCore.js';
 
 /**
- * Registers all Model Context Protocol (MCP) request handlers for tools, resources, and templates on the server.
- *
- * @param server - The server instance to register handlers on.
- * @param core - The core logic provider for tool execution.
+ * Sets up all MCP request handlers for the server
  */
 export function setupRequestHandlers(server: Server, core: MemoryPickleCore): void {
   // Tool handling
@@ -30,11 +27,7 @@ export function setupRequestHandlers(server: Server, core: MemoryPickleCore): vo
 }
 
 /**
- * Registers request handlers for listing available tools and invoking core tool methods.
- *
- * Sets up handlers to return the list of supported tools and to execute whitelisted core methods by name with arguments. Only eight specific tool methods are allowed; attempts to call other tools result in an error. If a tool method is not implemented or execution fails, an error response is returned.
- *
- * @throws {Error} If a requested tool name is not in the allowed list or is not implemented.
+ * Sets up tool-related request handlers
  */
 function setupToolHandlers(server: Server, core: MemoryPickleCore): void {
   // List available tools
@@ -79,12 +72,7 @@ function setupToolHandlers(server: Server, core: MemoryPickleCore): void {
 }
 
 /**
- * Registers request handlers for listing and reading available resources in the data directory.
- *
- * Provides endpoints to enumerate accessible resource files (such as projects, tasks, memories, metadata, and exports) and to retrieve their contents by URI. Enforces strict validation to prevent unauthorized file access and directory traversal.
- *
- * @remark
- * Only files within the data directory and with recognized filenames can be accessed. Attempts to access files outside the allowed directory or with unsafe filenames will result in an error.
+ * Sets up resource-related request handlers
  */
 function setupResourceHandlers(server: Server): void {
   // List resources

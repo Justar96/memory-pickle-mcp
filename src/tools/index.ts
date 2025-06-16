@@ -74,25 +74,6 @@ const CORE_TOOLS = [
         parent_id: {
           type: "string",
           description: "Parent task ID for creating subtasks in hierarchical structure (optional)"
-        },
-        line_range: {
-          type: "object",
-          properties: {
-            start_line: {
-              type: "number",
-              description: "Starting line number (1-based) for code/content reference"
-            },
-            end_line: {
-              type: "number",
-              description: "Ending line number (1-based, inclusive) for code/content reference"
-            },
-            file_path: {
-              type: "string",
-              description: "File path for context (optional)"
-            }
-          },
-          required: ["start_line", "end_line"],
-          description: "Optional line range reference for tasks related to specific code sections or content"
         }
       },
       required: ["title"]
@@ -156,25 +137,6 @@ const CORE_TOOLS = [
         task_id: {
           type: "string",
           description: "Link memory to specific task (optional)"
-        },
-        line_range: {
-          type: "object",
-          properties: {
-            start_line: {
-              type: "number",
-              description: "Starting line number (1-based) for code/content reference"
-            },
-            end_line: {
-              type: "number",
-              description: "Ending line number (1-based, inclusive) for code/content reference"
-            },
-            file_path: {
-              type: "string",
-              description: "File path for context (optional)"
-            }
-          },
-          required: ["start_line", "end_line"],
-          description: "Optional line range reference for memories about specific code sections or content"
         }
       },
       required: ["content"]

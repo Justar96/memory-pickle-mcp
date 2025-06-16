@@ -1,4 +1,4 @@
-import type { Memory, HandoffSummary, Task, Project, LineRange } from '../types/index.js';
+import type { Memory, HandoffSummary, Task, Project } from '../types/index.js';
 import { generateId } from '../utils/idGenerator.js';
 
 /**
@@ -16,34 +16,19 @@ export class MemoryService {
     tags?: string[];
     task_id?: string;
     project_id?: string;
-    line_range?: LineRange;
   }): Memory {
-    const {
-      title,
-      content,
-      category = 'general',
-      importance = 'medium',
-      tags = [],
-      task_id,
-      project_id,
-      line_range
+    const { 
+      title, 
+      content, 
+      category = 'general', 
+      importance = 'medium', 
+      tags = [], 
+      task_id, 
+      project_id 
     } = args;
     
     if (!title || !content) {
       throw new Error('Title and content are required');
-    }
-
-    // Validate line_range if provided
-    if (line_range) {
-      if (typeof line_range.start_line !== 'number' || typeof line_range.end_line !== 'number') {
-        throw new Error('Line range start_line and end_line must be numbers');
-      }
-      if (line_range.start_line < 1 || line_range.end_line < 1) {
-        throw new Error('Line numbers must be positive (1-based)');
-      }
-      if (line_range.start_line > line_range.end_line) {
-        throw new Error('start_line must be less than or equal to end_line');
-      }
     }
 
     return {
@@ -56,8 +41,7 @@ export class MemoryService {
       content,
       task_id,
       project_id,
-      related_memories: [],
-      line_range
+      related_memories: []
     };
   }
 
@@ -72,7 +56,6 @@ export class MemoryService {
     tags?: string[];
     task_id?: string;
     project_id?: string;
-    line_range?: LineRange;
   }): Memory {
     const memory = this.createMemory(args);
     memories.push(memory);
