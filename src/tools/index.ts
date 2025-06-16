@@ -28,7 +28,17 @@ const CORE_TOOLS = [
           description: "Project ID to show status for. If not specified, shows current project or all projects if none set." 
         }
       }
-    }
+    },
+    examples: [
+      {
+        call: { project_id: "proj_123" },
+        description: "Get status for specific project"
+      },
+      {
+        call: {},
+        description: "Get current project status (most common usage)"
+      }
+    ]
   },
   {
     name: "create_project",
@@ -43,10 +53,28 @@ const CORE_TOOLS = [
         description: { 
           type: "string", 
           description: "Project goals, scope, and key objectives (optional but recommended)" 
+        },
+        dry_run: {
+          type: "boolean",
+          default: false,
+          description: "If true, validates inputs and simulates creation without making changes"
         }
       },
       required: ["name"]
-    }
+    },
+    examples: [
+      {
+        call: { 
+          name: "E-commerce Website", 
+          description: "Build online store with user accounts, product catalog, and payment processing" 
+        },
+        description: "Creating a new web development project with detailed scope"
+      },
+      {
+        call: { name: "Bug Fixes" },
+        description: "Simple project for quick tasks without description"
+      }
+    ]
   },
   {
     name: "create_task",
@@ -95,10 +123,40 @@ const CORE_TOOLS = [
           },
           required: ["start_line", "end_line"],
           description: "Optional line range reference for tasks related to specific code sections or content"
+        },
+        dry_run: {
+          type: "boolean",
+          default: false,
+          description: "If true, validates inputs and simulates task creation without making changes"
         }
       },
       required: ["title"]
-    }
+    },
+    examples: [
+      {
+        call: { 
+          title: "Implement user authentication", 
+          priority: "high",
+          description: "Add login/logout functionality with JWT tokens" 
+        },
+        description: "User says: 'We need to implement user authentication with JWT tokens - this is important'"
+      },
+      {
+        call: { 
+          title: "Fix navigation bug", 
+          priority: "critical",
+          line_range: { start_line: 45, end_line: 67, file_path: "src/nav.js" }
+        },
+        description: "User says: 'There's a critical bug in the navigation component around lines 45-67'"
+      },
+      {
+        call: { 
+          title: "Add search functionality",
+          parent_id: "task_456" 
+        },
+        description: "Creating a subtask under an existing parent task"
+      }
+    ]
   },
   {
     name: "update_task",
@@ -126,10 +184,40 @@ const CORE_TOOLS = [
           type: "array", 
           items: { type: "string" }, 
           description: "List of blocking issues or dependencies" 
+        },
+        dry_run: {
+          type: "boolean",
+          default: false,
+          description: "If true, validates inputs and simulates task update without making changes"
         }
       },
       required: ["task_id"]
-    }
+    },
+    examples: [
+      {
+        call: { 
+          task_id: "task_123", 
+          completed: true,
+          notes: "Successfully implemented with React Router v6" 
+        },
+        description: "User says: 'I finished the navigation component using React Router v6'"
+      },
+      {
+        call: { 
+          task_id: "task_456", 
+          progress: 75,
+          notes: "API integration working, just need to add error handling" 
+        },
+        description: "User says: 'I'm about 75% done with the API integration, just need error handling'"
+      },
+      {
+        call: { 
+          task_id: "task_789", 
+          blockers: ["Database migration pending", "Waiting for API keys"] 
+        },
+        description: "User says: 'I'm blocked on this task - need database migration and API keys'"
+      }
+    ]
   },
   {
     name: "remember_this",
@@ -179,10 +267,40 @@ const CORE_TOOLS = [
           },
           required: ["start_line", "end_line"],
           description: "Optional line range reference for memories about specific code sections or content"
+        },
+        dry_run: {
+          type: "boolean",
+          default: false,
+          description: "If true, validates inputs and simulates memory storage without making changes"
         }
       },
       required: ["content"]
-    }
+    },
+    examples: [
+      {
+        call: { 
+          content: "Database will use PostgreSQL with connection pool of 20. Redis for caching user sessions.",
+          importance: "critical",
+          title: "Architecture decisions for data layer"
+        },
+        description: "User says: 'Remember that we decided on PostgreSQL with 20 connection pool and Redis for sessions'"
+      },
+      {
+        call: { 
+          content: "User reported bug only happens on mobile Safari, seems related to viewport height calculations",
+          task_id: "task_456"
+        },
+        description: "User says: 'Note that this bug only appears on mobile Safari - viewport height issue'"
+      },
+      {
+        call: { 
+          content: "API key: DEMO_KEY_12345 (expires Dec 2024)",
+          importance: "high",
+          line_range: { start_line: 12, end_line: 15, file_path: "config/api.js" }
+        },
+        description: "User shares API configuration details that need to be remembered"
+      }
+    ]
   },
   {
     name: "recall_context",
@@ -209,7 +327,28 @@ const CORE_TOOLS = [
           description: "Maximum number of memories to return" 
         }
       }
-    }
+    },
+    examples: [
+      {
+        call: { query: "database configuration" },
+        description: "User asks: 'What did we decide about the database setup?'"
+      },
+      {
+        call: { 
+          query: "API key",
+          importance: "critical" 
+        },
+        description: "User asks: 'What were those critical API configuration details?'"
+      },
+      {
+        call: { project_id: "proj_123" },
+        description: "User asks: 'What do we have stored for this project?'"
+      },
+      {
+        call: {},
+        description: "User asks: 'What context do we have?' (shows recent memories)"
+      }
+    ]
   },
   {
     name: "generate_handoff_summary",
@@ -228,7 +367,24 @@ const CORE_TOOLS = [
           description: "Output format. 'detailed' includes all context, 'compact' for quick overview."
         }
       }
-    }
+    },
+    examples: [
+      {
+        call: { format: "detailed" },
+        description: "User says: 'I need to hand this off to another developer' (comprehensive summary)"
+      },
+      {
+        call: { 
+          project_id: "proj_123",
+          format: "compact" 
+        },
+        description: "User says: 'Quick summary of where we are on the website project'"
+      },
+      {
+        call: {},
+        description: "User says: 'handoff' or 'goodbye' (triggers automatic detailed summary)"
+      }
+    ]
   },
   {
     name: "set_current_project",
@@ -239,10 +395,25 @@ const CORE_TOOLS = [
         project_id: {
           type: "string",
           description: "ID of the project to set as current active project. If project_id doesn't exist, list available projects. If no projects exist, suggest creating one first."
+        },
+        dry_run: {
+          type: "boolean",
+          default: false,
+          description: "If true, validates project_id exists without switching current project"
         }
       },
       required: ["project_id"]
-    }
+    },
+    examples: [
+      {
+        call: { project_id: "proj_456" },
+        description: "User says: 'Let's switch to working on the mobile app project'"
+      },
+      {
+        call: { project_id: "ecommerce_site" },
+        description: "User says: 'Focus on the ecommerce site now'"
+      }
+    ]
   }
 ];
 

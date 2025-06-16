@@ -8,6 +8,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { ALL_TOOLS } from '../tools/index.js';
 import type { MemoryPickleCore } from '../core/MemoryPickleCore.js';
+import { formatErrorResponse, MemoryPickleError } from '../utils/errors.js';
 
 /**
  * Registers all MCP request handlers for tools, resources, and templates on the server.
@@ -60,16 +61,10 @@ function setupToolHandlers(server: Server, core: MemoryPickleCore): void {
       if (typeof (core as any)[name] === 'function') {
         return await (core as any)[name](args);
       } else {
-        throw new Error(`Tool not implemented: ${name}`);
+        throw new MemoryPickleError(`Tool not implemented: ${name}`, 'TOOL_NOT_IMPLEMENTED');
       }
     } catch (error) {
-      return {
-        content: [{
-          type: "text",
-          text: `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`
-        }],
-        isError: true
-      };
+      return formatErrorResponse(error instanceof Error ? error : new Error('Unknown error'));
     }
   });
 }

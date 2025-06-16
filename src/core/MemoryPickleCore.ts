@@ -1,6 +1,7 @@
 import type { ProjectDatabase, Project, Task } from '../types/index.js';
 import { InMemoryStore, ProjectService, TaskService, MemoryService } from '../services/index.js';
 import { ValidationUtils } from '../utils/ValidationUtils.js';
+import { DryRunResult, formatErrorResponse } from '../utils/errors.js';
 
 /**
  * Core business logic for Memory Pickle MCP Server with robust error handling
@@ -150,7 +151,7 @@ export class MemoryPickleCore {
         throw new Error('Invalid arguments - expected object');
       }
 
-      const { name, description = '', status = 'planning' } = args;
+      const { name, description = '', status = 'planning', dry_run = false } = args;
 
       // Check required fields and sanitize
       if (name === undefined || name === null) {
@@ -171,6 +172,17 @@ export class MemoryPickleCore {
       }
       if (status && !['planning', 'in_progress', 'blocked', 'completed', 'archived'].includes(status)) {
         throw new Error('Invalid project status');
+      }
+
+      // Handle dry run
+      if (dry_run) {
+        return {
+          content: [{
+            type: "text",
+            text: `[DRY RUN] create_project: Would create project '${sanitizedName}' with description '${sanitizedDescription}' and set it as current project. No changes made.`
+          }],
+          isError: false
+        };
       }
 
       const result = await this.inMemoryStore.runExclusive(async (db) => {
@@ -373,7 +385,7 @@ export class MemoryPickleCore {
         throw new Error('Invalid arguments - expected object');
       }
 
-      const { title, description = '', priority = 'medium', project_id, parent_id, line_range } = args;
+      const { title, description = '', priority = 'medium', project_id, parent_id, line_range, dry_run = false } = args;
 
       // Check required fields and sanitize
       if (title === undefined || title === null) {
@@ -400,6 +412,17 @@ export class MemoryPickleCore {
       let targetProjectId = project_id;
       if (!targetProjectId) {
         targetProjectId = this.validateCurrentProject();
+      }
+
+      // Handle dry run
+      if (dry_run) {
+        return {
+          content: [{
+            type: "text",
+            text: `[DRY RUN] create_task: Would create task '${sanitizedTitle}' with priority '${priority}' in project '${targetProjectId}'. No changes made.`
+          }],
+          isError: false
+        };
       }
 
       const result = await this.inMemoryStore.runExclusive(async (db) => {
@@ -468,7 +491,7 @@ export class MemoryPickleCore {
         throw new Error('Invalid arguments - expected object');
       }
 
-      const { task_id, title, description, priority, completed, progress, notes, blockers } = args;
+      const { task_id, title, description, priority, completed, progress, notes, blockers, dry_run = false } = args;
 
       // Check required fields
       if (task_id === undefined || task_id === null) {
@@ -486,6 +509,17 @@ export class MemoryPickleCore {
       }
       if (priority !== undefined && !['low', 'medium', 'high', 'critical'].includes(priority)) {
         throw new Error('Invalid task priority');
+      }
+
+      // Handle dry run
+      if (dry_run) {
+        return {
+          content: [{
+            type: "text",
+            text: `[DRY RUN] update_task: Would update task '${task_id}' with provided changes. No changes made.`
+          }],
+          isError: false
+        };
       }
 
       const result = await this.inMemoryStore.runExclusive(async (db) => {
@@ -605,7 +639,7 @@ export class MemoryPickleCore {
         throw new Error('Invalid arguments - expected object');
       }
 
-      const { content, title, importance = 'medium', project_id, task_id, line_range } = args;
+      const { content, title, importance = 'medium', project_id, task_id, line_range, dry_run = false } = args;
 
       // Check required fields and sanitize
       if (content === undefined || content === null) {
@@ -630,6 +664,17 @@ export class MemoryPickleCore {
       };
 
       const validatedMemory = this.inMemoryStore.validateAndSanitizeInput('memory', memoryData);
+
+      // Handle dry run
+      if (dry_run) {
+        return {
+          content: [{
+            type: "text",
+            text: `[DRY RUN] remember_this: Would store memory '${sanitizedTitle || 'Untitled'}' with importance '${importance}'. No changes made.`
+          }],
+          isError: false
+        };
+      }
 
       const result = await this.inMemoryStore.runExclusive(async (db) => {
         const newMemory = this.memoryService.addMemory(db.memories, {
@@ -859,10 +904,21 @@ export class MemoryPickleCore {
 
   async set_current_project(args: any): Promise<any> {
     this.trackToolUsage('set_current_project');
-    const { project_id } = args;
+    const { project_id, dry_run = false } = args;
 
     if (!project_id) {
       throw new Error('Project ID is required');
+    }
+
+    // Handle dry run
+    if (dry_run) {
+      return {
+        content: [{
+          type: "text",
+          text: `[DRY RUN] set_current_project: Would set project '${project_id}' as current project. No changes made.`
+        }],
+        isError: false
+      };
     }
 
     const result = await this.inMemoryStore.runExclusive(async (db) => {
