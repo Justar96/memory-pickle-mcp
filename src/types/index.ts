@@ -3,6 +3,7 @@ import type { projectDatabaseSchema, Task, Project, Memory } from './schemas.js'
 
 // --- Core Database Types (from Zod schemas) ---
 export type { ProjectDatabase, Task, Project, Memory } from './schemas.js';
+export type { LineRange } from './Task.js';
 
 
 // --- View Model & Non-persistent Interfaces ---

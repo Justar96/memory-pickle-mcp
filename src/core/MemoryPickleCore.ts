@@ -16,6 +16,19 @@ export class MemoryPickleCore {
   private taskIndex: Map<string, Task>;
   private isShuttingDown: boolean = false;
 
+  // Enhanced session tracking
+  private sessionActivity: {
+    tasksCreated: string[];
+    tasksUpdated: string[];
+    tasksCompleted: string[];
+    memoriesCreated: string[];
+    projectsCreated: string[];
+    projectSwitches: string[];
+    lastActiveProject?: string;
+    keyDecisions: string[];
+    toolUsageCount: Map<string, number>;
+  };
+
   constructor(
     storageService: StorageService,
     projectService: ProjectService,
@@ -28,6 +41,16 @@ export class MemoryPickleCore {
     this.memoryService = memoryService;
     this.sessionStartTime = new Date();
     this.taskIndex = new Map();
+    this.sessionActivity = {
+      tasksCreated: [],
+      tasksUpdated: [],
+      tasksCompleted: [],
+      memoriesCreated: [],
+      projectsCreated: [],
+      projectSwitches: [],
+      keyDecisions: [],
+      toolUsageCount: new Map()
+    };
     this.buildTaskIndex();
   }
 
@@ -137,6 +160,7 @@ export class MemoryPickleCore {
   // Project Management Methods
   async create_project(args: any): Promise<any> {
     return this.safeExecute('create_project', async () => {
+      this.trackToolUsage('create_project');
       this.validateInput(args, ['name'], 'create_project');
 
       const { name, description = '', status = 'planning' } = args;
@@ -184,6 +208,9 @@ export class MemoryPickleCore {
           changedParts: new Set(['projects', 'meta'] as const)
         };
       });
+
+      // Track session activity
+      this.trackToolUsage('create_project', 'project_created', result.id);
 
       // Note: No need to reload database since we're working with the same instance
 
@@ -358,9 +385,10 @@ export class MemoryPickleCore {
   // Task Management Methods
   async create_task(args: any): Promise<any> {
     return this.safeExecute('create_task', async () => {
+      this.trackToolUsage('create_task');
       this.validateInput(args, ['title'], 'create_task');
 
-      const { title, description = '', priority = 'medium', project_id, parent_id } = args;
+      const { title, description = '', priority = 'medium', project_id, parent_id, line_range } = args;
 
       // Additional validation
       if (title.length > 200) {
@@ -402,7 +430,8 @@ export class MemoryPickleCore {
           description: description.trim(),
           priority,
           project_id: targetProjectId,
-          parent_id
+          parent_id,
+          line_range
         });
 
         db.tasks.push(newTask);
@@ -416,6 +445,9 @@ export class MemoryPickleCore {
 
       // Note: No need to reload database since we're working with the same instance
       this.buildTaskIndex();
+
+      // Track session activity
+      this.trackToolUsage('create_task', 'task_created', result.id);
 
       const database = this.storageService.getDatabase();
       const project = this.projectService.findProjectById(database.projects, targetProjectId);
@@ -431,6 +463,7 @@ export class MemoryPickleCore {
 
   async update_task(args: any): Promise<any> {
     return this.safeExecute('update_task', async () => {
+      this.trackToolUsage('update_task');
       this.validateInput(args, ['task_id'], 'update_task');
 
       const { task_id, title, description, priority, completed, progress, notes, blockers } = args;
@@ -509,6 +542,12 @@ export class MemoryPickleCore {
     // Note: No need to reload database since we're working with the same instance
     this.buildTaskIndex();
 
+    // Track session activity
+    this.trackToolUsage('update_task', 'task_updated', result.id);
+    if (completed === true) {
+      this.trackToolUsage('update_task', 'task_completed', result.id);
+    }
+
     let response = `[OK] **Task Updated Successfully!**\n\n**${result.title}**\n`;
     if (completed !== undefined) {
       response += `Status: ${result.completed ? 'Completed [DONE]' : 'Active [ACTIVE]'}\n`;
@@ -545,6 +584,7 @@ export class MemoryPickleCore {
   // Memory Management Methods
   async remember_this(args: any): Promise<any> {
     return this.safeExecute('remember_this', async () => {
+      this.trackToolUsage('remember_this');
       const sanitizedArgs = this.validateInput(args, ['content'], 'remember_this');
       
       // Use StorageService validation for memory data
@@ -553,7 +593,8 @@ export class MemoryPickleCore {
         title: sanitizedArgs.title,
         importance: sanitizedArgs.importance || 'medium',
         project_id: sanitizedArgs.project_id,
-        task_id: sanitizedArgs.task_id
+        task_id: sanitizedArgs.task_id,
+        line_range: sanitizedArgs.line_range
       };
       
       const validatedMemory = this.storageService.validateAndSanitizeInput('memory', memoryData);
@@ -564,7 +605,8 @@ export class MemoryPickleCore {
           content: validatedMemory.content,
           importance: validatedMemory.importance,
           project_id: validatedMemory.project_id,
-          task_id: validatedMemory.task_id
+          task_id: validatedMemory.task_id,
+          line_range: validatedMemory.line_range
         });
 
         return {
@@ -573,6 +615,9 @@ export class MemoryPickleCore {
           changedParts: new Set(['memories'] as const)
         };
       });
+
+      // Track session activity
+      this.trackToolUsage('remember_this', 'memory_created', result.id);
 
       // Generate markdown suggestion for critical/high importance memories
       let markdownSuggestion = '';
@@ -654,7 +699,8 @@ export class MemoryPickleCore {
 
 
   async generate_handoff_summary(args: any = {}): Promise<any> {
-    const { project_id } = args;
+    this.trackToolUsage('generate_handoff_summary');
+    const { project_id, format = 'detailed' } = args;
 
     // Always get fresh database reference
     const database = this.storageService.getDatabase();
@@ -667,9 +713,61 @@ export class MemoryPickleCore {
       projects = [project];
     }
 
-    let summary = `# [HANDOFF] Session Summary\n\n`;
+    // Get session activity data
+    const sessionActivity = this.getSessionActivity();
+
+    let summary = `# [HANDOFF] Enhanced Session Summary\n\n`;
     summary += `**Generated:** ${new Date().toLocaleString()}\n`;
-    summary += `**Session Duration:** ${Math.round((Date.now() - this.sessionStartTime.getTime()) / 1000 / 60)} minutes\n\n`;
+    summary += `**Session Duration:** ${sessionActivity.sessionDuration} minutes\n`;
+    summary += `**Session Activity:** ${Object.values(sessionActivity.toolUsageCount).reduce((a, b) => a + b, 0)} tool calls\n\n`;
+
+    // Add session activity summary
+    if (sessionActivity.tasksCreated.length > 0 || sessionActivity.tasksUpdated.length > 0 || sessionActivity.memoriesCreated.length > 0) {
+      summary += `## [SESSION] What Happened This Session\n\n`;
+
+      if (sessionActivity.tasksCreated.length > 0) {
+        summary += `**Tasks Created:** ${sessionActivity.tasksCreated.length}\n`;
+        sessionActivity.tasksCreated.slice(0, 3).forEach(taskId => {
+          const task = database.tasks.find(t => t.id === taskId);
+          if (task) summary += `- ${task.title}\n`;
+        });
+        if (sessionActivity.tasksCreated.length > 3) {
+          summary += `- ... and ${sessionActivity.tasksCreated.length - 3} more\n`;
+        }
+        summary += `\n`;
+      }
+
+      if (sessionActivity.tasksCompleted.length > 0) {
+        summary += `**Tasks Completed:** ${sessionActivity.tasksCompleted.length}\n`;
+        sessionActivity.tasksCompleted.forEach(taskId => {
+          const task = database.tasks.find(t => t.id === taskId);
+          if (task) summary += `- ✅ ${task.title}\n`;
+        });
+        summary += `\n`;
+      }
+
+      if (sessionActivity.memoriesCreated.length > 0) {
+        summary += `**Notes/Memories Created:** ${sessionActivity.memoriesCreated.length}\n`;
+        sessionActivity.memoriesCreated.slice(0, 3).forEach(memoryId => {
+          const memory = database.memories.find(m => m.id === memoryId);
+          if (memory) summary += `- ${memory.title}\n`;
+        });
+        if (sessionActivity.memoriesCreated.length > 3) {
+          summary += `- ... and ${sessionActivity.memoriesCreated.length - 3} more\n`;
+        }
+        summary += `\n`;
+      }
+
+      if (Object.keys(sessionActivity.toolUsageCount).length > 0) {
+        summary += `**Tool Usage:**\n`;
+        Object.entries(sessionActivity.toolUsageCount).forEach(([tool, count]) => {
+          summary += `- ${tool}: ${count}x\n`;
+        });
+        summary += `\n`;
+      }
+
+      summary += `---\n\n`;
+    }
 
     for (const project of projects) {
       const projectTasks = database.tasks.filter(task => task.project_id === project.id);
@@ -728,6 +826,7 @@ export class MemoryPickleCore {
 
 
   async set_current_project(args: any): Promise<any> {
+    this.trackToolUsage('set_current_project');
     const { project_id } = args;
 
     if (!project_id) {
@@ -758,6 +857,9 @@ export class MemoryPickleCore {
         changedParts: new Set(['meta'] as const)
       };
     });
+
+    // Track session activity
+    this.trackToolUsage('set_current_project', 'project_switched', result.id);
 
     // Note: No need to reload database since we're working with the same instance
 
@@ -791,6 +893,68 @@ export class MemoryPickleCore {
 
     // Cleanup storage service
     this.storageService.cleanup();
+  }
+
+  /**
+   * Track tool usage and session activity
+   */
+  private trackToolUsage(toolName: string, activityType?: string, itemId?: string) {
+    // Track tool usage count
+    const currentCount = this.sessionActivity.toolUsageCount.get(toolName) || 0;
+    this.sessionActivity.toolUsageCount.set(toolName, currentCount + 1);
+
+    // Track specific activities
+    if (activityType && itemId) {
+      switch (activityType) {
+        case 'task_created':
+          this.sessionActivity.tasksCreated.push(itemId);
+          break;
+        case 'task_updated':
+          this.sessionActivity.tasksUpdated.push(itemId);
+          break;
+        case 'task_completed':
+          this.sessionActivity.tasksCompleted.push(itemId);
+          break;
+        case 'memory_created':
+          this.sessionActivity.memoriesCreated.push(itemId);
+          break;
+        case 'project_created':
+          this.sessionActivity.projectsCreated.push(itemId);
+          break;
+        case 'project_switched':
+          this.sessionActivity.projectSwitches.push(itemId);
+          this.sessionActivity.lastActiveProject = itemId;
+          break;
+      }
+    }
+  }
+
+  /**
+   * Get session activity summary
+   */
+  getSessionActivity() {
+    return {
+      ...this.sessionActivity,
+      sessionDuration: Math.round((Date.now() - this.sessionStartTime.getTime()) / 1000 / 60),
+      toolUsageCount: Object.fromEntries(this.sessionActivity.toolUsageCount)
+    };
+  }
+
+  /**
+   * Reset session activity (useful for testing)
+   */
+  resetSessionActivity() {
+    this.sessionActivity = {
+      tasksCreated: [],
+      tasksUpdated: [],
+      tasksCompleted: [],
+      memoriesCreated: [],
+      projectsCreated: [],
+      projectSwitches: [],
+      keyDecisions: [],
+      toolUsageCount: new Map()
+    };
+    this.sessionStartTime = new Date();
   }
 
   /**

@@ -1,3 +1,9 @@
+export interface LineRange {
+  start_line: number;
+  end_line: number;
+  file_path?: string;
+}
+
 export interface Task {
   id: string;
   project_id: string;
@@ -14,4 +20,5 @@ export interface Task {
   subtasks?: string[]; // IDs of subtasks
   notes?: string[];
   blockers?: string[];
+  line_range?: LineRange;
 }

@@ -164,4 +164,58 @@ describe('MemoryService', () => {
       expect(summary.next_priorities).toHaveLength(2);
     });
   });
+
+  describe('Line Range Functionality', () => {
+    it('should create memory with valid line_range', () => {
+      const memory = memoryService.createMemory({
+        title: 'Important code section',
+        content: 'This section handles user authentication and needs to be refactored',
+        importance: 'high',
+        line_range: {
+          start_line: 100,
+          end_line: 150,
+          file_path: 'src/components/UserAuth.tsx'
+        }
+      });
+
+      expect(memory.title).toBe('Important code section');
+      expect(memory.line_range).toBeDefined();
+      expect(memory.line_range?.start_line).toBe(100);
+      expect(memory.line_range?.end_line).toBe(150);
+      expect(memory.line_range?.file_path).toBe('src/components/UserAuth.tsx');
+    });
+
+    it('should create memory without line_range (optional)', () => {
+      const memory = memoryService.createMemory({
+        title: 'General note',
+        content: 'Remember to update the documentation',
+        importance: 'medium'
+      });
+
+      expect(memory.title).toBe('General note');
+      expect(memory.line_range).toBeUndefined();
+    });
+
+    it('should validate line_range parameters for memories', () => {
+      // Test invalid line numbers (zero)
+      expect(() => memoryService.createMemory({
+        title: 'Invalid memory',
+        content: 'Test content',
+        line_range: {
+          start_line: 0,
+          end_line: 10
+        }
+      })).toThrow('Line numbers must be positive');
+
+      // Test invalid line range (start > end)
+      expect(() => memoryService.createMemory({
+        title: 'Invalid memory 2',
+        content: 'Test content',
+        line_range: {
+          start_line: 50,
+          end_line: 25
+        }
+      })).toThrow('start_line must be less than or equal to end_line');
+    });
+  });
 });
