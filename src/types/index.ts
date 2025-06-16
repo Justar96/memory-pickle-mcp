@@ -30,3 +30,12 @@ export interface HandoffSummary {
   session_notes: string;
 }
 
+export interface MemoryTemplate {
+  category: string;
+  structure: Array<{
+    step: string;
+    prompt: string;
+  }>;
+  auto_trigger: string[];
+}
+

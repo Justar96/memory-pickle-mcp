@@ -1,5 +1,5 @@
 {
-  "name": "@cabbages-pre/memory-pickle-mcp-pre",
+  "name": "@cabbages/memory-pickle-mcp",
   "version": "1.3.8",
   "description": "Simplified MCP server for AI agent project management - 8 essential tools for session memory and task tracking",
   "keywords": [
