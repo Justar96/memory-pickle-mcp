@@ -169,7 +169,8 @@ Apache 2.0
 
 ## Version
 
-Current: 1.3.1
+Current: 1.2.1
+Pre-release: 1.3.8
 
 Recent changes:
 - Simplified to memory-only storage (no file persistence)
