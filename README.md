@@ -50,6 +50,8 @@ Project management and session memory for AI agents. Provides 8 essential MCP to
 
 ## How Memory Works
 
+*for kilo , cline , roo best with code mode. there are some struggle with HITL*
+
 **Memory-Only Storage**
 - All data exists only during the current chat session
 - Nothing saved to disk - no files created
