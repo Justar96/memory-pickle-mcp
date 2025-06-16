@@ -227,32 +227,6 @@ npm run build
 }
 ```
 
-**Global installation:**
-```json
-{
-  "mcpServers": {
-    "memory-pickle": {
-      "command": "memory-pickle"
-    }
-  }
-}
-```
-
-## 🎨 Features
-
-**Task Management:**
-- Hierarchical tasks with subtasks
-- Priority levels (critical/high/medium/low)  
-- Progress tracking (0-100%)
-- Blocker documentation
-- Automatic completion detection
-
-**Project Organization:**
-- Multiple concurrent projects
-- Automatic task assignment to current project
-- Project-level progress calculation
-- Status tracking (planning/in_progress/completed)
-
 **User Experience:**
 - 🎭 **Configurable Output**: Choose between emoji-rich or clean text mode
 - 🏢 **Corporate Friendly**: Professional text output for enterprise environments
@@ -310,9 +284,15 @@ Apache 2.0 License - Use freely in your projects!
 **Current:** 1.2.1
 **Pre-release:** 1.3.8 
 **Package:** [@cabbages/memory-pickle-mcp](https://www.npmjs.com/package/@cabbages/memory-pickle-mcp)
+**Pre-release package:** [@cabbages-pre/memory-pickle-mcp-pre](https://www.npmjs.com/package/@cabbages-pre/memory-pickle-mcp-pre)
 
+### Upcoming (v1.3.0)
+- 🎯 Major simplification release
+- 📦 Reduced from 17 to 8 essential tools
+- 🛠️ Consolidated `update_task` for progress, notes, and blockers
+- 🔄 Simplified memory to use in-memory database (so many bugs with files io ;c)
 
-### Recent Updates (v1.2.0)
+### Recent Updates (v1.2.1)
 - ✅ Fixed MemoryPickleCore compilation issues after refactoring
 - 🛡️ Added comprehensive data integrity tools (3 new tools)
 - 🔧 Enhanced service layer with missing methods
