@@ -140,7 +140,7 @@ describe('System Integration - Complete MCP Workflow Testing', () => {
       const handoffSummary = await core.generate_handoff_summary({});
       const summaryText = handoffSummary.content[0].text;
 
-      expect(summaryText).toContain('[HANDOFF] Session Summary');
+      expect(summaryText).toContain('[HANDOFF] Enhanced Session Summary');
       expect(summaryText).toContain('E-commerce Platform');
       expect(summaryText).toContain('Build React Frontend');
       expect(summaryText).toContain('Develop Node.js API');
@@ -300,10 +300,10 @@ describe('System Integration - Complete MCP Workflow Testing', () => {
 
       // Test empty/invalid inputs
       await expect(core.create_project({ name: '' }))
-        .rejects.toThrow('Project name is required');
+        .rejects.toThrow('Field \'name\' cannot be empty');
 
       await expect(core.create_task({ title: '' }))
-        .rejects.toThrow('Task title is required');
+        .rejects.toThrow('Field \'title\' cannot be empty');
 
       // Test recall with no memories
       const emptyRecall = await core.recall_context({
@@ -371,7 +371,7 @@ describe('System Integration - Complete MCP Workflow Testing', () => {
       expect(searchResponse.content[0].text).toMatch(/Performance Memory|Recalled Memories/);
 
       const handoffResponse = await core.generate_handoff_summary({});
-      expect(handoffResponse.content[0].text).toContain('[HANDOFF] Session Summary');
+      expect(handoffResponse.content[0].text).toContain('[HANDOFF] Enhanced Session Summary');
 
       const retrievalTime = Date.now() - retrievalStart;
       console.log(`📊 Retrieval operations completed in ${retrievalTime}ms`);
@@ -551,7 +551,7 @@ describe('System Integration - Complete MCP Workflow Testing', () => {
       const handoff = await core.generate_handoff_summary({});
       const handoffText = handoff.content[0].text;
 
-      expect(handoffText).toContain('[HANDOFF] Session Summary');
+      expect(handoffText).toContain('[HANDOFF] Enhanced Session Summary');
       expect(handoffText).toContain('Customer Portal Redesign');
       expect(handoffText).toContain('Comprehensive Testing');
       // Note: Handoff summary may not include all memories, just recent ones

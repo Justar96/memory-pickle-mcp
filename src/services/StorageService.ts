@@ -232,8 +232,8 @@ export class StorageService {
    * Processes queued operations safely to prevent deadlocks
    */
   private processQueue(): void {
-    // Process all queued operations, not just the first one
-    while (this.operationQueue.length > 0 && !this.operationLock && !this.isShuttingDown) {
+    // Process one queued operation at a time to maintain order
+    if (this.operationQueue.length > 0 && !this.operationLock && !this.isShuttingDown) {
       const queueItem = this.operationQueue.shift();
       if (queueItem) {
         const { operation } = queueItem;
@@ -245,7 +245,6 @@ export class StorageService {
             console.error('Queued operation failed:', error);
           }
         });
-        break; // Process one at a time to maintain order
       }
     }
   }

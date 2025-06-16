@@ -5,10 +5,16 @@ const prioritySchema = z.enum(['critical', 'high', 'medium', 'low']);
 
 // Line range schema for code/content references
 const lineRangeSchema = z.object({
-  start_line: z.number(),
-  end_line: z.number(),
+  start_line: z.number().int().positive(),
+  end_line: z.number().int().positive(),
   file_path: z.string().optional(),
-}).optional();
+}).refine(
+  (data) => data.start_line <= data.end_line,
+  {
+    message: "start_line must be less than or equal to end_line",
+    path: ["start_line"]
+  }
+).optional();
 
 export const taskSchema = z.object({
   id: z.string(),

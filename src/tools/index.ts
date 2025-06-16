@@ -79,11 +79,13 @@ const CORE_TOOLS = [
           type: "object",
           properties: {
             start_line: {
-              type: "number",
+              type: "integer",
+              minimum: 1,
               description: "Starting line number (1-based) for code/content reference"
             },
             end_line: {
-              type: "number",
+              type: "integer",
+              minimum: 1,
               description: "Ending line number (1-based, inclusive) for code/content reference"
             },
             file_path: {
@@ -161,11 +163,13 @@ const CORE_TOOLS = [
           type: "object",
           properties: {
             start_line: {
-              type: "number",
+              type: "integer",
+              minimum: 1,
               description: "Starting line number (1-based) for code/content reference"
             },
             end_line: {
-              type: "number",
+              type: "integer",
+              minimum: 1,
               description: "Ending line number (1-based, inclusive) for code/content reference"
             },
             file_path: {

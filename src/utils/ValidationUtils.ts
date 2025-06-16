@@ -16,8 +16,8 @@ export class ValidationUtils {
 
     if (project.description && typeof project.description !== 'string') {
       errors.push('Project description must be a string');
-    } else if (project.description && project.description.length > 2000) {
-      errors.push('Project description cannot exceed 2000 characters');
+    } else if (project.description && project.description.length > 20000) {
+      errors.push('Project description cannot exceed 20000 characters');
     }
 
     if (project.status && !['planning', 'in_progress', 'blocked', 'completed', 'archived'].includes(project.status)) {
@@ -106,14 +106,14 @@ export class ValidationUtils {
 
     if (!memory.content || typeof memory.content !== 'string') {
       errors.push('Memory content is required and must be a string');
-    } else if (memory.content.length === 0 || memory.content.length > 5000) {
-      errors.push('Memory content must be between 1 and 5000 characters');
+    } else if (memory.content.length === 0 || memory.content.length > 50000) {
+      errors.push('Memory content must be between 1 and 50000 characters');
     }
 
     if (memory.title && typeof memory.title !== 'string') {
       errors.push('Memory title must be a string');
-    } else if (memory.title && memory.title.length > 200) {
-      errors.push('Memory title cannot exceed 200 characters');
+    } else if (memory.title && memory.title.length > 500) {
+      errors.push('Memory title cannot exceed 500 characters');
     }
 
     if (memory.importance && !['low', 'medium', 'high', 'critical'].includes(memory.importance)) {

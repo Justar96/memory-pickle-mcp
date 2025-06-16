@@ -148,84 +148,40 @@ export class MemoryPickleCoreTestUtils {
   }
 
   /**
-   * Creates a MemoryPickleCore instance with realistic test scenario
+   * Creates a MemoryPickleCore instance using the standard create method with project setup
    */
-  static async createWithScenario(scenario: 'empty' | 'basic' | 'complex' = 'basic'): Promise<{
+  static async createWithScenario(scenario: 'basic' | 'withProject' = 'basic'): Promise<{
     core: MemoryPickleCore;
-    testData: {
-      projects: Project[];
-      tasks: Task[];
-      memories: Memory[];
-    };
+    testData: { projects: any[]; tasks: any[]; memories: any[] }
   }> {
-    let database: ProjectDatabase;
-    let testData: { projects: Project[]; tasks: Task[]; memories: Memory[] };
+    const core = await MemoryPickleCore.create();
 
-    switch (scenario) {
-      case 'empty':
-        database = TestDataFactory.createDatabase();
-        testData = { projects: [], tasks: [], memories: [] };
-        break;
+    let testData = { projects: [], tasks: [], memories: [] };
 
-      case 'basic':
-        const project = TestDataFactory.createProject({ name: 'Test Project' });
-        const task1 = TestDataFactory.createTask({
-          project_id: project.id,
-          title: 'Test Task 1',
-          completed: true
-        });
-        const task2 = TestDataFactory.createTask({
-          project_id: project.id,
-          title: 'Test Task 2',
-          progress: 50
-        });
-        const memory = TestDataFactory.createMemory({
-          project_id: project.id,
-          title: 'Test Memory',
-          content: 'Test memory content'
-        });
+    if (scenario === 'withProject' || scenario === 'basic') {
+      // Create a default project for tests that need one
+      const projectResponse = await core.create_project({
+        name: 'Test Project',
+        description: 'Default project for testing'
+      });
 
-        database = TestDataFactory.createDatabase({
-          projects: [project],
-          tasks: [task1, task2],
-          memories: [memory],
-          meta: {
-            last_updated: new Date().toISOString(),
-            version: "2.0.0",
-            session_count: 1,
-            current_project_id: project.id
-          }
-        });
-        testData = { projects: [project], tasks: [task1, task2], memories: [memory] };
-        break;
+      // Extract project ID from response
+      const projectId = projectResponse.content[0].text.match(/\*\*ID:\*\* (proj_[a-zA-Z0-9_]+)/)?.[1];
 
-      case 'complex':
-        const projects = [
-          TestDataFactory.createProject({ name: 'Project A' }),
-          TestDataFactory.createProject({ name: 'Project B' })
-        ];
-        const tasks = [
-          TestDataFactory.createTask({ project_id: projects[0].id, title: 'Task A1', completed: true }),
-          TestDataFactory.createTask({ project_id: projects[0].id, title: 'Task A2', progress: 75 }),
-          TestDataFactory.createTask({ project_id: projects[1].id, title: 'Task B1', priority: 'critical' }),
-        ];
-        const memories = [
-          TestDataFactory.createMemory({ project_id: projects[0].id, title: 'Memory A' }),
-          TestDataFactory.createMemory({ project_id: projects[1].id, title: 'Memory B' }),
-        ];
-
-        database = TestDataFactory.createDatabase({
-          projects,
-          tasks,
-          memories
-        });
-        testData = { projects, tasks, memories };
-        break;
+      if (projectId) {
+        // Get the actual project data from the database
+        const database = core.getDatabase();
+        const project = database.projects.find(p => p.id === projectId);
+        if (project) {
+          testData.projects.push(project);
+        }
+      }
     }
 
-    const core = await this.createWithTestData(database);
     return { core, testData };
   }
+
+
 }
 
 /**

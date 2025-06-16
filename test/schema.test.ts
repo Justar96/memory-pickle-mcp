@@ -150,4 +150,149 @@ describe('Schema Validation', () => {
       expect(result.success).toBe(true);
     });
   });
+
+  describe('Line Range Schema Validation', () => {
+    it('should validate valid line ranges', () => {
+      const taskWithValidLineRange = {
+        id: 'task_1',
+        project_id: 'proj_1',
+        title: 'Test Task',
+        completed: false,
+        created_date: new Date().toISOString(),
+        priority: 'medium' as const,
+        line_range: {
+          start_line: 1,
+          end_line: 10,
+          file_path: 'src/test.ts'
+        }
+      };
+
+      const result = taskSchema.safeParse(taskWithValidLineRange);
+      expect(result.success).toBe(true);
+    });
+
+    it('should validate line ranges where start_line equals end_line', () => {
+      const taskWithSingleLineRange = {
+        id: 'task_1',
+        project_id: 'proj_1',
+        title: 'Test Task',
+        completed: false,
+        created_date: new Date().toISOString(),
+        priority: 'medium' as const,
+        line_range: {
+          start_line: 5,
+          end_line: 5
+        }
+      };
+
+      const result = taskSchema.safeParse(taskWithSingleLineRange);
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject negative line numbers', () => {
+      const taskWithNegativeLines = {
+        id: 'task_1',
+        project_id: 'proj_1',
+        title: 'Test Task',
+        completed: false,
+        created_date: new Date().toISOString(),
+        priority: 'medium' as const,
+        line_range: {
+          start_line: -1,
+          end_line: 10
+        }
+      };
+
+      const result = taskSchema.safeParse(taskWithNegativeLines);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues.some(issue =>
+          issue.message.includes('Number must be greater than 0')
+        )).toBe(true);
+      }
+    });
+
+    it('should reject zero line numbers', () => {
+      const taskWithZeroLines = {
+        id: 'task_1',
+        project_id: 'proj_1',
+        title: 'Test Task',
+        completed: false,
+        created_date: new Date().toISOString(),
+        priority: 'medium' as const,
+        line_range: {
+          start_line: 0,
+          end_line: 10
+        }
+      };
+
+      const result = taskSchema.safeParse(taskWithZeroLines);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues.some(issue =>
+          issue.message.includes('Number must be greater than 0')
+        )).toBe(true);
+      }
+    });
+
+    it('should reject non-integer line numbers', () => {
+      const taskWithFloatLines = {
+        id: 'task_1',
+        project_id: 'proj_1',
+        title: 'Test Task',
+        completed: false,
+        created_date: new Date().toISOString(),
+        priority: 'medium' as const,
+        line_range: {
+          start_line: 1.5,
+          end_line: 10
+        }
+      };
+
+      const result = taskSchema.safeParse(taskWithFloatLines);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues.some(issue =>
+          issue.message.includes('Expected integer')
+        )).toBe(true);
+      }
+    });
+
+    it('should reject when start_line is greater than end_line', () => {
+      const taskWithInvalidRange = {
+        id: 'task_1',
+        project_id: 'proj_1',
+        title: 'Test Task',
+        completed: false,
+        created_date: new Date().toISOString(),
+        priority: 'medium' as const,
+        line_range: {
+          start_line: 10,
+          end_line: 5
+        }
+      };
+
+      const result = taskSchema.safeParse(taskWithInvalidRange);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues.some(issue =>
+          issue.message.includes('start_line must be less than or equal to end_line')
+        )).toBe(true);
+      }
+    });
+
+    it('should allow optional line_range to be undefined', () => {
+      const taskWithoutLineRange = {
+        id: 'task_1',
+        project_id: 'proj_1',
+        title: 'Test Task',
+        completed: false,
+        created_date: new Date().toISOString(),
+        priority: 'medium' as const
+      };
+
+      const result = taskSchema.safeParse(taskWithoutLineRange);
+      expect(result.success).toBe(true);
+    });
+  });
 });

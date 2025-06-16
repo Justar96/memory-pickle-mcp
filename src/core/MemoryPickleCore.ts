@@ -169,8 +169,8 @@ export class MemoryPickleCore {
       if (name.length > 200) {
         throw new Error('Project name cannot exceed 200 characters');
       }
-      if (description.length > 2000) {
-        throw new Error('Project description cannot exceed 2000 characters');
+      if (description.length > 20000) {
+        throw new Error('Project description cannot exceed 20000 characters');
       }
       if (status && !['planning', 'in_progress', 'blocked', 'completed', 'archived'].includes(status)) {
         throw new Error('Invalid project status');
