@@ -1,3 +1,5 @@
+import type { LineRange } from './Task.js';
+
 export interface Memory {
   id: string;
   timestamp: string;
@@ -9,5 +11,6 @@ export interface Memory {
   related_memories?: string[];
   task_id?: string; // Link to task if relevant
   project_id?: string; // Link to project if relevant
+  line_range?: LineRange;
 }
 

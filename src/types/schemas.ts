@@ -3,6 +3,13 @@ import { z } from 'zod';
 // Schemas for primitive/reused types
 const prioritySchema = z.enum(['critical', 'high', 'medium', 'low']);
 
+// Line range schema for code/content references
+const lineRangeSchema = z.object({
+  start_line: z.number(),
+  end_line: z.number(),
+  file_path: z.string().optional(),
+}).optional();
+
 export const taskSchema = z.object({
   id: z.string(),
   project_id: z.string(),
@@ -19,6 +26,7 @@ export const taskSchema = z.object({
   subtasks: z.array(z.string()).optional().default([]),
   notes: z.array(z.string()).optional().default([]),
   blockers: z.array(z.string()).optional().default([]),
+  line_range: lineRangeSchema,
 });
 
 export const milestoneSchema = z.object({
@@ -53,6 +61,7 @@ const memorySchema = z.object({
   related_memories: z.array(z.string()).optional().default([]),
   task_id: z.string().optional(),
   project_id: z.string().optional(),
+  line_range: lineRangeSchema,
 });
 
 // Main Database Schema

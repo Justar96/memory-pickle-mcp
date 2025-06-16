@@ -27,15 +27,19 @@ export function createServer(): Server {
 }
 
 /**
- * Creates the transport for the server
+ * Creates a new standard input/output (stdio) transport for the server.
+ *
+ * @returns An instance of {@link StdioServerTransport} for server communication over stdio.
  */
 export function createTransport(): StdioServerTransport {
   return new StdioServerTransport();
 }
 
 /**
- * Starts the server with the given transport
- * Note: Removed console.error to prevent interference with MCP stdio communication
+ * Connects the server to the specified transport and begins handling MCP requests.
+ *
+ * @remark
+ * Does not log startup messages to avoid interfering with MCP stdio communication.
  */
 export async function startServer(server: Server, transport: StdioServerTransport): Promise<void> {
   await server.connect(transport);

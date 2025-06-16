@@ -1,4 +1,4 @@
-import type { Task, Project } from '../types/index.js';
+import type { Task, Project, LineRange } from '../types/index.js';
 import { generateId } from '../utils/idGenerator.js';
 
 /**
@@ -16,6 +16,7 @@ export class TaskService {
     due_date?: string;
     tags?: string[];
     project_id: string;
+    line_range?: LineRange;
   }): Task {
     const {
       title,
@@ -24,7 +25,8 @@ export class TaskService {
       priority,
       due_date,
       tags = [],
-      project_id
+      project_id,
+      line_range
     } = args;
 
     // Auto-detect priority from title and description
@@ -46,6 +48,19 @@ export class TaskService {
       throw new Error(`Invalid priority: ${priority}. Must be one of: critical, high, medium, low`);
     }
 
+    // Validate line_range if provided
+    if (line_range) {
+      if (typeof line_range.start_line !== 'number' || typeof line_range.end_line !== 'number') {
+        throw new Error('Line range start_line and end_line must be numbers');
+      }
+      if (line_range.start_line < 1 || line_range.end_line < 1) {
+        throw new Error('Line numbers must be positive (1-based)');
+      }
+      if (line_range.start_line > line_range.end_line) {
+        throw new Error('start_line must be less than or equal to end_line');
+      }
+    }
+
     return {
       id: generateId('task'),
       project_id,
@@ -60,7 +75,8 @@ export class TaskService {
       tags: Array.isArray(tags) ? tags : [tags],
       subtasks: [],
       notes: [],
-      blockers: []
+      blockers: [],
+      line_range
     };
   }
 
