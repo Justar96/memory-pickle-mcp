@@ -21,16 +21,25 @@ describe('ValidationUtils - Complete Coverage', () => {
       expect(ValidationUtils.sanitizeString('   ')).toBe('');
     });
 
-    test('should trim whitespace', () => {
+    test('should trim whitespace from strings', () => {
       expect(ValidationUtils.sanitizeString('  hello  ')).toBe('hello');
-      expect(ValidationUtils.sanitizeString('\n\ttest\n\t')).toBe('test');
+      expect(ValidationUtils.sanitizeString('\n\ttest\r\n')).toBe('test');
     });
 
     test('should handle non-string inputs', () => {
-      expect(ValidationUtils.sanitizeString(123 as any)).toBe('123');
-      expect(ValidationUtils.sanitizeString(true as any)).toBe('true');
-      expect(ValidationUtils.sanitizeString(false as any)).toBe('false');
-      expect(ValidationUtils.sanitizeString({} as any)).toBe('[object Object]');
+      expect(ValidationUtils.sanitizeString(123 as any)).toBe('');
+      expect(ValidationUtils.sanitizeString(true as any)).toBe('');
+      expect(ValidationUtils.sanitizeString(false as any)).toBe('');
+      expect(ValidationUtils.sanitizeString({} as any)).toBe('');
+      expect(ValidationUtils.sanitizeString([] as any)).toBe('');
+      expect(ValidationUtils.sanitizeString(null as any)).toBe('');
+      expect(ValidationUtils.sanitizeString(undefined as any)).toBe('');
+    });
+
+    test('should preserve special characters within strings', () => {
+      expect(ValidationUtils.sanitizeString('hello\nworld')).toBe('hello\nworld');
+      expect(ValidationUtils.sanitizeString('test\ttab')).toBe('test\ttab');
+      expect(ValidationUtils.sanitizeString('emoji😀test')).toBe('emoji😀test');
     });
 
     test('should handle special characters', () => {
@@ -163,7 +172,7 @@ describe('ValidationUtils - Complete Coverage', () => {
   describe('validateStringLength', () => {
     test('should validate strings within length limits', () => {
       expect(() => ValidationUtils.validateStringLength('test', 'field', 1, 10)).not.toThrow();
-      expect(() => ValidationUtils.validateStringLength('exactly5', 'field', 5, 5)).not.toThrow();
+      expect(() => ValidationUtils.validateStringLength('exactly', 'field', 7, 7)).not.toThrow();
     });
 
     test('should throw for strings too short', () => {
@@ -195,11 +204,11 @@ describe('ValidationUtils - Complete Coverage', () => {
 
     test('should throw for invalid progress values', () => {
       expect(() => ValidationUtils.validateProgress(-1))
-        .toThrow('Progress must be between 0 and 100');
+        .toThrow('Invalid progress value \'-1\'. Must be between 0 and 100.');
       expect(() => ValidationUtils.validateProgress(101))
-        .toThrow('Progress must be between 0 and 100');
+        .toThrow('Invalid progress value \'101\'. Must be between 0 and 100.');
       expect(() => ValidationUtils.validateProgress(150))
-        .toThrow('Progress must be between 0 and 100');
+        .toThrow('Invalid progress value \'150\'. Must be between 0 and 100.');
     });
   });
 
@@ -287,13 +296,13 @@ describe('ValidationUtils - Complete Coverage', () => {
     });
 
     test('should handle boolean values in string sanitization', () => {
-      expect(ValidationUtils.sanitizeString(true as any)).toBe('true');
-      expect(ValidationUtils.sanitizeString(false as any)).toBe('false');
+      expect(ValidationUtils.sanitizeString(true as any)).toBe('');
+      expect(ValidationUtils.sanitizeString(false as any)).toBe('');
     });
 
     test('should handle object values in string sanitization', () => {
-      expect(ValidationUtils.sanitizeString({ key: 'value' } as any)).toBe('[object Object]');
-      expect(ValidationUtils.sanitizeString([1, 2, 3] as any)).toBe('1,2,3');
+      expect(ValidationUtils.sanitizeString({ key: 'value' } as any)).toBe('');
+      expect(ValidationUtils.sanitizeString([1, 2, 3] as any)).toBe('');
     });
   });
 });

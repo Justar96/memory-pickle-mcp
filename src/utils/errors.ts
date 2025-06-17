@@ -99,39 +99,3 @@ export function formatErrorResponse(error: Error): {
   };
 }
 
-/**
- * Validates common input parameters and throws appropriate errors
- */
-export class ValidationUtils {
-  static validatePriority(priority?: string): void {
-    if (priority && !['critical', 'high', 'medium', 'low'].includes(priority)) {
-      throw new InvalidPriorityError(priority);
-    }
-  }
-
-  static validateProgress(progress?: number): void {
-    if (progress !== undefined && (progress < 0 || progress > 100)) {
-      throw new InvalidProgressError(progress);
-    }
-  }
-
-  static validateRequiredField(value: any, fieldName: string): void {
-    if (!value || (typeof value === 'string' && value.trim().length === 0)) {
-      throw new ValidationError(fieldName, value, 'is required and cannot be empty');
-    }
-  }
-
-  static validateLineRange(lineRange?: any): void {
-    if (lineRange) {
-      if (!lineRange.start_line || !lineRange.end_line) {
-        throw new ValidationError('line_range', lineRange, 'must include both start_line and end_line');
-      }
-      if (lineRange.start_line > lineRange.end_line) {
-        throw new ValidationError('line_range', lineRange, 'start_line must be <= end_line');
-      }
-      if (lineRange.start_line < 1 || lineRange.end_line < 1) {
-        throw new ValidationError('line_range', lineRange, 'line numbers must be positive');
-      }
-    }
-  }
-}

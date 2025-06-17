@@ -2,7 +2,7 @@
   "mcpServers": {
     "memory-pickle-pre": {
       "command": "npx",
-      "args": ["-y", "@cabbages-pre/memory-pickle-mcp-pre@1.3.8"]
+      "args": ["-y", "@cabbages-pre/memory-pickle-mcp-pre@1.4.0"]
     }
   }
 }

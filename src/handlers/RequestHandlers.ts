@@ -45,15 +45,16 @@ function setupToolHandlers(server: Server, core: MemoryPickleCore): void {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
-    // Simplified whitelist of core methods (8 tools)
-    const allowedMethods = [
-      'get_project_status', 'create_project', 'set_current_project',
-      'create_task', 'update_task',
-      'remember_this', 'recall_context',
-      'generate_handoff_summary'
+    // Register all tool handlers
+    const toolMethods = [
+      'get_project_status', 'create_project', 'update_project', 'set_current_project',
+      'create_task', 'update_task', 'get_task', 'list_tasks',
+      'remember_this', 'recall_state', 'recall_context',
+      'export_session', 'generate_handoff_summary',
+      'list_projects'
     ];
 
-    if (!allowedMethods.includes(name)) {
+    if (!toolMethods.includes(name)) {
       throw new Error(`Unknown or unauthorized tool: ${name}`);
     }
 

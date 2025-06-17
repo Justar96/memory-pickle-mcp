@@ -1,7 +1,7 @@
 import type { ProjectDatabase, Project, Task } from '../types/index.js';
-import { InMemoryStore, ProjectService, TaskService, MemoryService } from '../services/index.js';
+import { InMemoryStore, ProjectService, TaskService, MemoryService, RecallService, ExportService } from '../services/index.js';
 import { ValidationUtils } from '../utils/ValidationUtils.js';
-import { DryRunResult, formatErrorResponse } from '../utils/errors.js';
+import { DryRunResult, formatErrorResponse, ProjectNotFoundError, TaskNotFoundError, ValidationError } from '../utils/errors.js';
 
 /**
  * Core business logic for Memory Pickle MCP Server with robust error handling
@@ -128,14 +128,15 @@ export class MemoryPickleCore {
     const currentProjectId = currentDatabase.meta?.current_project_id;
 
     if (!currentProjectId) {
-      throw new Error('No current project set. Use set_current_project or provide project_id parameter.');
+      throw new ValidationError('current_project_id', undefined, 'No current project set. Use set_current_project or provide project_id parameter.');
     }
 
     const project = this.projectService.findProjectById(currentDatabase.projects, currentProjectId);
     if (!project) {
       // Auto-fix: clear invalid current project
       currentDatabase.meta.current_project_id = undefined;
-      throw new Error('Current project no longer exists. Please set a new current project.');
+      const availableProjects = currentDatabase.projects.map(p => p.id);
+      throw new ProjectNotFoundError(currentProjectId, availableProjects);
     }
 
     return currentProjectId;
@@ -221,7 +222,6 @@ export class MemoryPickleCore {
       // Track session activity
       this.trackToolUsage('create_project', 'project_created', result.id);
 
-      // Note: No need to reload database since we're working with the same instance
 
       return {
         content: [{
@@ -337,10 +337,21 @@ export class MemoryPickleCore {
   }
 
   async update_project(args: any): Promise<any> {
-    const { project_id, name, description, status } = args;
+    const { project_id, name, description, status, dry_run = false } = args;
 
     if (!project_id) {
       throw new Error('Project ID is required');
+    }
+
+    // Handle dry run
+    if (dry_run) {
+      return {
+        content: [{
+          type: "text",
+          text: `[DRY RUN] update_project: Would update project '${project_id}' with provided changes. No changes made.`
+        }],
+        isError: false
+      };
     }
 
     const result = await this.inMemoryStore.runExclusive(async (db) => {
@@ -363,7 +374,6 @@ export class MemoryPickleCore {
       };
     });
 
-    // Note: No need to reload database since we're working with the same instance
 
     return {
       content: [{
@@ -461,7 +471,6 @@ export class MemoryPickleCore {
         };
       });
 
-      // Note: No need to reload database since we're working with the same instance
       this.buildTaskIndex();
 
       // Recalculate project completion since we added a new task
@@ -582,7 +591,6 @@ export class MemoryPickleCore {
       };
     });
 
-    // Note: No need to reload database since we're working with the same instance
     this.buildTaskIndex();
 
     // Recalculate project completion if task completion status changed
@@ -710,6 +718,51 @@ export class MemoryPickleCore {
         }]
       };
     });
+  }
+
+  /**
+   * Universal state recall - replaces recall_context with comprehensive state overview
+   */
+  async recall_state(args: any = {}): Promise<any> {
+    this.trackToolUsage('recall_state');
+    const { 
+      limit = 20, 
+      project_id, 
+      include_completed = false, 
+      memory_importance,
+      focus = 'all',
+      format = 'text' 
+    } = args;
+
+    const database = this.inMemoryStore.getDatabase();
+    
+    // Generate comprehensive state data
+    const stateData = RecallService.generateStateRecall(database, {
+      limit,
+      project_id,
+      include_completed,
+      memory_importance,
+      focus
+    });
+
+    if (format === 'json') {
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify(stateData, null, 2)
+        }]
+      };
+    }
+
+    // Default: formatted text response
+    const formattedText = RecallService.formatStateRecall(stateData);
+    
+    return {
+      content: [{
+        type: "text",
+        text: formattedText
+      }]
+    };
   }
 
   async recall_context(args: any = {}): Promise<any> {
@@ -949,7 +1002,6 @@ export class MemoryPickleCore {
     // Track session activity
     this.trackToolUsage('set_current_project', 'project_switched', result.id);
 
-    // Note: No need to reload database since we're working with the same instance
 
     return {
       content: [{
@@ -1043,6 +1095,382 @@ export class MemoryPickleCore {
       toolUsageCount: new Map()
     };
     this.sessionStartTime = new Date();
+  }
+
+  // MCP Tool Wrappers for hidden methods
+  
+  /**
+   * Internal system stats (no longer exposed as MCP tool)
+   */
+  private async get_system_stats(args: any = {}): Promise<any> {
+    this.trackToolUsage('get_system_stats');
+    const { dry_run = false } = args;
+
+    if (dry_run) {
+      return {
+        content: [{
+          type: "text",
+          text: `[DRY RUN] get_system_stats: Would return current system statistics. No changes made.`
+        }],
+        isError: false
+      };
+    }
+
+    const stats = this.getSystemStats();
+    
+    return {
+      content: [{
+        type: "text",
+        text: `[INFO] **System Statistics**\n\n**Database:**\n- Projects: ${stats.database.projects}\n- Tasks: ${stats.database.tasks}\n- Memories: ${stats.database.memories}\n- Queued Operations: ${stats.database.queuedOperations}\n- Last Updated: ${stats.database.lastUpdated}\n\n**Session:**\n- Task Index Size: ${stats.taskIndexSize}\n- Session Duration: ${stats.sessionDuration} minutes\n- Status: ${stats.isShuttingDown ? 'Shutting down' : 'Active'}`
+      }]
+    };
+  }
+
+  /**
+   * Internal data cleanup (no longer exposed as MCP tool)
+   */
+  private async cleanup_orphaned_data(args: any = {}): Promise<any> {
+    return this.safeExecute('cleanup_orphaned_data', async () => {
+      this.trackToolUsage('cleanup_orphaned_data');
+      const { dry_run = false } = args;
+
+      if (dry_run) {
+        return {
+          content: [{
+            type: "text",
+            text: `[DRY RUN] cleanup_orphaned_data: Would perform data integrity cleanup. No changes made.`
+          }],
+          isError: false
+        };
+      }
+
+      const stats = await this.cleanupOrphanedData();
+      
+      let report = `[OK] **Data Cleanup Complete**\n\n`;
+      report += `**Issues Fixed:**\n`;
+      report += `- Orphaned Tasks: ${stats.orphanedTasks}\n`;
+      report += `- Orphaned Memories: ${stats.orphanedMemories}\n`;
+      report += `- Invalid Task References: ${stats.invalidTaskReferences}\n`;
+      report += `- Invalid Current Project: ${stats.invalidCurrentProject ? 'Yes' : 'No'}\n`;
+      report += `- Duplicates Removed: ${stats.duplicatesRemoved}\n`;
+      report += `- Corrupted Data Fixed: ${stats.corruptedDataFixed}\n\n`;
+      
+      const totalIssues = stats.orphanedTasks + stats.orphanedMemories + stats.invalidTaskReferences + 
+                         (stats.invalidCurrentProject ? 1 : 0) + stats.duplicatesRemoved + stats.corruptedDataFixed;
+      
+      if (totalIssues === 0) {
+        report += `[INFO] Database is clean - no issues found.`;
+      } else {
+        report += `[INFO] Fixed ${totalIssues} total issues.`;
+      }
+
+      return {
+        content: [{
+          type: "text",
+          text: report
+        }]
+      };
+    });
+  }
+
+  // New Read-Only Tools for better agent workflow
+
+  /**
+   * List tasks with filtering and pagination
+   */
+  async list_tasks(args: any = {}): Promise<any> {
+    this.trackToolUsage('list_tasks');
+    const { status, priority, project_id, completed, limit = 50, offset = 0 } = args;
+
+    const database = this.inMemoryStore.getDatabase();
+    let tasks = database.tasks;
+
+    // Apply filters
+    if (project_id) {
+      tasks = tasks.filter(task => task.project_id === project_id);
+    }
+    if (status !== undefined) {
+      // Map status to completed boolean for consistency
+      if (status === 'completed') {
+        tasks = tasks.filter(task => task.completed);
+      } else if (status === 'active') {
+        tasks = tasks.filter(task => !task.completed);
+      }
+    }
+    if (completed !== undefined) {
+      tasks = tasks.filter(task => task.completed === completed);
+    }
+    if (priority) {
+      tasks = tasks.filter(task => task.priority === priority);
+    }
+
+    // Sort by priority (critical > high > medium > low) and creation date
+    const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+    tasks = tasks.sort((a, b) => {
+      const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+      if (priorityDiff !== 0) return priorityDiff;
+      return new Date(b.created_date).getTime() - new Date(a.created_date).getTime();
+    });
+
+    // Apply pagination
+    const totalTasks = tasks.length;
+    tasks = tasks.slice(offset, offset + limit);
+
+    // Format response
+    let response = `# Task List\n\n`;
+    response += `**Total Tasks:** ${totalTasks} (showing ${tasks.length})\n`;
+    if (project_id) {
+      const project = this.projectService.findProjectById(database.projects, project_id);
+      response += `**Project:** ${project?.name || 'Unknown'}\n`;
+    }
+    response += `\n`;
+
+    if (tasks.length === 0) {
+      response += `[INFO] No tasks found matching the criteria.`;
+    } else {
+      tasks.forEach((task, index) => {
+        const status = task.completed ? '[DONE]' : '[ACTIVE]';
+        response += `${offset + index + 1}. **${task.title}** ${status}\n`;
+        response += `   Priority: ${task.priority} | ID: ${task.id}\n`;
+        if (task.progress && task.progress > 0) {
+          response += `   Progress: ${task.progress}%\n`;
+        }
+        if (task.description) {
+          response += `   ${task.description.substring(0, 100)}${task.description.length > 100 ? '...' : ''}\n`;
+        }
+        response += `\n`;
+      });
+    }
+
+    return {
+      content: [{
+        type: "text",
+        text: response
+      }]
+    };
+  }
+
+  /**
+   * List projects with basic info
+   */
+  async list_projects(args: any = {}): Promise<any> {
+    this.trackToolUsage('list_projects');
+    const { status, limit = 50, offset = 0 } = args;
+
+    const database = this.inMemoryStore.getDatabase();
+    let projects = database.projects;
+
+    // Apply filters
+    if (status) {
+      projects = projects.filter(project => project.status === status);
+    }
+
+    // Sort by status priority and creation date
+    const statusOrder = { in_progress: 0, planning: 1, blocked: 2, completed: 3, archived: 4 };
+    projects = projects.sort((a, b) => {
+      const statusDiff = (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99);
+      if (statusDiff !== 0) return statusDiff;
+      return new Date(b.created_date).getTime() - new Date(a.created_date).getTime();
+    });
+
+    // Apply pagination
+    const totalProjects = projects.length;
+    projects = projects.slice(offset, offset + limit);
+
+    // Calculate task counts for each project
+    const projectsWithStats = projects.map(project => {
+      const projectTasks = database.tasks.filter(task => task.project_id === project.id);
+      const completedTasks = projectTasks.filter(task => task.completed);
+      return {
+        ...project,
+        totalTasks: projectTasks.length,
+        completedTasks: completedTasks.length,
+        completion: projectTasks.length > 0 ? Math.round((completedTasks.length / projectTasks.length) * 100) : 0
+      };
+    });
+
+    // Format response
+    let response = `# Project List\n\n`;
+    response += `**Total Projects:** ${totalProjects} (showing ${projects.length})\n\n`;
+
+    if (projectsWithStats.length === 0) {
+      response += `[INFO] No projects found matching the criteria.`;
+    } else {
+      projectsWithStats.forEach((project, index) => {
+        const isCurrentProject = database.meta?.current_project_id === project.id;
+        const currentMarker = isCurrentProject ? ' [CURRENT]' : '';
+        
+        response += `${offset + index + 1}. **${project.name}**${currentMarker}\n`;
+        response += `   Status: ${project.status} | Completion: ${project.completion}%\n`;
+        response += `   Tasks: ${project.completedTasks}/${project.totalTasks} completed\n`;
+        response += `   ID: ${project.id}\n`;
+        if (project.description) {
+          response += `   ${project.description.substring(0, 100)}${project.description.length > 100 ? '...' : ''}\n`;
+        }
+        response += `\n`;
+      });
+    }
+
+    return {
+      content: [{
+        type: "text",
+        text: response
+      }]
+    };
+  }
+
+  /**
+   * Get detailed info for a single task
+   */
+  async get_task(args: any): Promise<any> {
+    this.trackToolUsage('get_task');
+    const { task_id } = args;
+
+    if (!task_id) {
+      throw new Error('Task ID is required');
+    }
+
+    const database = this.inMemoryStore.getDatabase();
+    const task = this.taskService.findTaskById(database.tasks, task_id);
+    
+    if (!task) {
+      throw new Error(`Task not found: ${task_id}`);
+    }
+
+    // Get project info
+    const project = this.projectService.findProjectById(database.projects, task.project_id);
+    
+    // Get subtasks if any
+    const subtasks = database.tasks.filter(t => t.parent_id === task_id);
+    
+    // Get related memories
+    const relatedMemories = database.memories.filter(m => m.task_id === task_id);
+
+    // Format detailed response
+    let response = `# Task Details: ${task.title}\n\n`;
+    response += `**ID:** ${task.id}\n`;
+    response += `**Status:** ${task.completed ? 'Completed [DONE]' : 'Active [ACTIVE]'}\n`;
+    response += `**Priority:** ${task.priority}\n`;
+    response += `**Project:** ${project?.name || 'Unknown'} (${task.project_id})\n`;
+    response += `**Created:** ${new Date(task.created_date).toLocaleDateString()}\n`;
+    
+    if (task.completed && task.completed_date) {
+      response += `**Completed:** ${new Date(task.completed_date).toLocaleDateString()}\n`;
+    }
+    
+    if (task.progress && task.progress > 0) {
+      response += `**Progress:** ${task.progress}%\n`;
+    }
+    
+    response += `\n`;
+
+    if (task.description) {
+      response += `## Description\n${task.description}\n\n`;
+    }
+
+    if (task.line_range) {
+      response += `## Code Reference\n`;
+      response += `File: ${task.line_range.file_path}\n`;
+      response += `Lines: ${task.line_range.start_line}-${task.line_range.end_line}\n\n`;
+    }
+
+    if (task.blockers && task.blockers.length > 0) {
+      response += `## Blockers\n`;
+      task.blockers.forEach((blocker, index) => {
+        response += `${index + 1}. ${blocker}\n`;
+      });
+      response += `\n`;
+    }
+
+    if (task.notes && task.notes.length > 0) {
+      response += `## Notes\n`;
+      task.notes.slice(-3).forEach(note => {
+        response += `- ${note}\n`;
+      });
+      if (task.notes.length > 3) {
+        response += `... and ${task.notes.length - 3} more notes\n`;
+      }
+      response += `\n`;
+    }
+
+    if (subtasks.length > 0) {
+      response += `## Subtasks (${subtasks.length})\n`;
+      subtasks.forEach((subtask, index) => {
+        const status = subtask.completed ? '[DONE]' : '[ACTIVE]';
+        response += `${index + 1}. **${subtask.title}** ${status}\n`;
+      });
+      response += `\n`;
+    }
+
+    if (relatedMemories.length > 0) {
+      response += `## Related Memories (${relatedMemories.length})\n`;
+      relatedMemories.slice(0, 3).forEach((memory, index) => {
+        response += `${index + 1}. **${memory.title}** (${memory.importance} importance)\n`;
+      });
+      if (relatedMemories.length > 3) {
+        response += `... and ${relatedMemories.length - 3} more memories\n`;
+      }
+    }
+
+    return {
+      content: [{
+        type: "text",
+        text: response
+      }]
+    };
+  }
+
+  // Additional Maintenance and Utility Tools
+
+
+
+  /**
+   * Export current session data for persistence
+   */
+  async export_session(args: any = {}): Promise<any> {
+    this.trackToolUsage('export_session');
+    const { format = 'markdown', include_handoff = true, raw_markdown = false } = args;
+
+    const database = this.inMemoryStore.getDatabase();
+    const sessionActivity = this.getSessionActivity();
+
+    if (format === 'json') {
+      const jsonData = ExportService.exportAsJson(database, sessionActivity);
+      return {
+        content: [{
+          type: "text",
+          text: `[OK] **Session Data Exported (JSON)**\n\n\`\`\`json\n${jsonData}\n\`\`\`\n\n[INFO] Copy this data to save session state permanently.`
+        }]
+      };
+    }
+
+    // Generate handoff summary if requested
+    let handoffSummary = undefined;
+    if (include_handoff) {
+      const handoffResult = await this.generate_handoff_summary({ format: 'detailed' });
+      handoffSummary = handoffResult.content[0].text;
+    }
+
+    const markdown = ExportService.exportAsMarkdown(database, sessionActivity, handoffSummary);
+    const filename = `session-export-${new Date().toISOString().split('T')[0]}.md`;
+    
+    // If raw_markdown is requested, return just the clean markdown content
+    if (raw_markdown) {
+      return {
+        content: [{
+          type: "text",
+          text: markdown
+        }]
+      };
+    }
+
+    // Default behavior: wrap in MCP response format with instructions
+    return {
+      content: [{
+        type: "text",
+        text: `[OK] **Session Exported to Markdown**\n\n${markdown}\n\n[INFO] **Recommended:** Save this as \`${filename}\` for permanent storage.\n\n[TIP] **For Clean Markdown:** Use \`export_session\` with \`raw_markdown: true\` or \`generate_handoff_summary\` for unwrapped content.`
+      }]
+    };
   }
 
   /**
@@ -1201,4 +1629,6 @@ export class MemoryPickleCore {
       return result;
     });
   }
+
+
 }

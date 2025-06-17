@@ -9,16 +9,27 @@ import { getVersion } from '../utils/version.js';
  */
 export class InMemoryStore {
   private database: ProjectDatabase;
-  private operationInProgress: boolean = false;
-  private operationQueue: Array<() => void> = [];
+  private operationLock: Promise<void> = Promise.resolve();
+  private operationQueue: Array<{
+    operation: (db: ProjectDatabase) => Promise<any>;
+    resolve: (value: any) => void;
+    reject: (error: any) => void;
+  }> = [];
+
+  // Data size limits to prevent unbounded memory growth
+  private static readonly MAX_PROJECTS = 1000;
+  private static readonly MAX_TASKS = 10000;
+  private static readonly MAX_MEMORIES = 5000;
+  private static readonly MAX_QUEUE_SIZE = 100;
+  private static readonly MAX_DATABASE_SIZE_MB = 50;
 
   constructor() {
     this.database = this.createDefaultDatabase();
   }
 
   /**
-   * Executes an operation with transaction safety through snapshot-based commits.
-   * Provides data integrity and rollback capabilities with simple serialization.
+   * Executes an operation with proper mutex-based transaction safety.
+   * Uses Promise chaining to ensure true serialization without recursion.
    *
    * @param operation - Function that receives the database and returns result with optional commit
    * @returns The result from the operation
@@ -30,56 +41,58 @@ export class InMemoryStore {
       changedParts?: Set<'projects' | 'tasks' | 'memories' | 'meta'>;
     }>
   ): Promise<T> {
-    // Simple serialization for concurrent operations
-    if (this.operationInProgress) {
-      return new Promise<T>((resolve, reject) => {
-        this.operationQueue.push(async () => {
-          try {
-            const result = await this.runExclusive(operation);
-            resolve(result);
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
-    }
-
-    this.operationInProgress = true;
-
-    try {
-      // Create snapshot for transaction safety
-      const databaseSnapshot = this.createSnapshot();
-
-      // Execute operation on snapshot
-      const { result, commit = false, changedParts } = await operation(databaseSnapshot);
-
-      // Validate and commit atomically if requested
-      if (commit) {
-        this.validateDatabaseIntegrity(databaseSnapshot, changedParts);
-        this.commitChanges(databaseSnapshot);
-      }
-
-      return result;
-    } catch (error) {
-      // Rollback is automatic - snapshot is discarded
-      throw error;
-    } finally {
-      this.operationInProgress = false;
-      this.processNextOperation();
-    }
+    return new Promise<T>((resolve, reject) => {
+      // Queue the operation with its resolve/reject handlers
+      this.operationQueue.push({ operation, resolve, reject });
+      
+      // Process the queue (this will handle the current operation if it's the only one)
+      this.processQueue();
+    });
   }
 
   /**
-   * Process the next queued operation
+   * Processes the operation queue with proper mutex-style locking
    */
-  private processNextOperation(): void {
-    if (this.operationQueue.length > 0) {
-      const nextOperation = this.operationQueue.shift();
-      if (nextOperation) {
-        // Use setImmediate to prevent stack overflow
-        setImmediate(nextOperation);
-      }
-    }
+  private processQueue(): void {
+    if (this.operationQueue.length === 0) return;
+
+    // Chain the next operation to the current lock
+    this.operationLock = this.operationLock
+      .then(async () => {
+        const queueItem = this.operationQueue.shift();
+        if (!queueItem) return;
+
+        const { operation, resolve, reject } = queueItem;
+
+        try {
+          // Create deep snapshot for true transaction safety
+          const databaseSnapshot = this.createDeepSnapshot();
+
+          // Execute operation on isolated snapshot
+          const { result, commit = false, changedParts } = await operation(databaseSnapshot);
+
+          // Validate and commit atomically if requested
+          if (commit) {
+            this.validateDatabaseIntegrity(databaseSnapshot, changedParts);
+            this.commitChanges(databaseSnapshot);
+          }
+
+          resolve(result);
+        } catch (error) {
+          // Rollback is automatic - snapshot is discarded
+          reject(error);
+        }
+      })
+      .catch((error) => {
+        // Handle any unexpected errors in the chain
+        console.error('Unexpected error in operation queue:', error);
+      })
+      .finally(() => {
+        // Continue processing if there are more operations
+        if (this.operationQueue.length > 0) {
+          this.processQueue();
+        }
+      });
   }
 
   /**
@@ -107,8 +120,6 @@ export class InMemoryStore {
     return this.database;
   }
 
-
-
   /**
    * Creates a default empty database structure.
    */
@@ -126,40 +137,28 @@ export class InMemoryStore {
     };
   }
 
-
-
   /**
-   * Returns markdown suggestion for persistent storage instead of file export
-   * Note: Removed console.log to prevent MCP stdio interference
+   * Creates a deep snapshot copy of the database for true transaction safety
    */
-  async saveExport(_filename: string, _content: string): Promise<void> {
-    // In-memory mode: Consider creating a markdown file manually
-    // Note: Console output removed to prevent MCP protocol interference
-    // Parameters prefixed with _ to indicate intentionally unused
-  }
-
-  /**
-   * Creates a snapshot copy of the database for transaction safety
-   */
-  private createSnapshot(): ProjectDatabase {
+  private createDeepSnapshot(): ProjectDatabase {
     try {
-      // Create shallow copy of database structure
-      const snapshot: ProjectDatabase = {
-        meta: { ...this.database.meta },
-        projects: this.database.projects.map(p => ({ ...p })),
-        tasks: this.database.tasks.map(t => ({
-          ...t,
-          notes: t.notes ? [...t.notes] : [],
-          blockers: t.blockers ? [...t.blockers] : []
-        })),
-        memories: this.database.memories.map(m => ({ ...m })),
-        templates: { ...this.database.templates }
-      };
-
+      // Use JSON serialization for true deep cloning
+      // This ensures complete isolation between snapshot and original
+      const serialized = JSON.stringify(this.database);
+      const snapshot = JSON.parse(serialized) as ProjectDatabase;
+      
       return snapshot;
     } catch (error) {
       throw new Error(`Failed to create database snapshot: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  /**
+   * Creates a shallow snapshot copy (kept for backward compatibility)
+   * @deprecated Use createDeepSnapshot for true isolation
+   */
+  private createSnapshot(): ProjectDatabase {
+    return this.createDeepSnapshot();
   }
 
   /**
@@ -171,6 +170,50 @@ export class InMemoryStore {
   }
 
   /**
+   * Validates database size limits to prevent unbounded memory growth
+   */
+  private validateDatabaseSizeLimits(database: ProjectDatabase): void {
+    // Check queue size first
+    if (this.operationQueue.length > InMemoryStore.MAX_QUEUE_SIZE) {
+      throw new Error(`Operation queue too large: ${this.operationQueue.length} operations. Maximum allowed: ${InMemoryStore.MAX_QUEUE_SIZE}`);
+    }
+
+    // Check individual collection sizes
+    if (database.projects.length > InMemoryStore.MAX_PROJECTS) {
+      throw new Error(`Too many projects: ${database.projects.length}. Maximum allowed: ${InMemoryStore.MAX_PROJECTS}`);
+    }
+
+    if (database.tasks.length > InMemoryStore.MAX_TASKS) {
+      throw new Error(`Too many tasks: ${database.tasks.length}. Maximum allowed: ${InMemoryStore.MAX_TASKS}`);
+    }
+
+    if (database.memories.length > InMemoryStore.MAX_MEMORIES) {
+      throw new Error(`Too many memories: ${database.memories.length}. Maximum allowed: ${InMemoryStore.MAX_MEMORIES}`);
+    }
+
+    // Check total database size (rough estimate)
+    const estimatedSizeMB = this.estimateDatabaseSize(database);
+    if (estimatedSizeMB > InMemoryStore.MAX_DATABASE_SIZE_MB) {
+      throw new Error(`Database too large: ~${estimatedSizeMB}MB. Maximum allowed: ${InMemoryStore.MAX_DATABASE_SIZE_MB}MB`);
+    }
+  }
+
+  /**
+   * Estimates database size in MB using JSON serialization length
+   */
+  private estimateDatabaseSize(database: ProjectDatabase): number {
+    try {
+      const jsonString = JSON.stringify(database);
+      const sizeBytes = new Blob([jsonString]).size;
+      return Math.round((sizeBytes / 1024 / 1024) * 100) / 100; // Round to 2 decimal places
+    } catch {
+      // Fallback rough estimate
+      const itemCount = database.projects.length + database.tasks.length + database.memories.length;
+      return Math.round((itemCount * 0.001) * 100) / 100; // Assume ~1KB per item average
+    }
+  }
+
+  /**
    * Validates database integrity after operations using comprehensive validation
    */
   private validateDatabaseIntegrity(
@@ -178,6 +221,9 @@ export class InMemoryStore {
     changedParts?: Set<'projects' | 'tasks' | 'memories' | 'meta'>
   ): void {
     try {
+      // Check size limits first to prevent unbounded growth
+      this.validateDatabaseSizeLimits(database);
+
       // Full database validation
       const validation = ValidationUtils.validateDatabase(database);
       if (!validation.isValid) {
@@ -258,9 +304,29 @@ export class InMemoryStore {
    * Cleanup method for graceful shutdown
    */
   cleanup(): void {
-    // Clear any pending operations
+    // Reject any pending operations
+    this.operationQueue.forEach(({ reject }) => {
+      reject(new Error('Database shutting down'));
+    });
     this.operationQueue.length = 0;
-    this.operationInProgress = false;
+  }
+
+  /**
+   * Async cleanup method for graceful shutdown with operation completion
+   */
+  async shutdownAsync(): Promise<void> {
+    // Reject any pending operations
+    this.operationQueue.forEach(({ reject }) => {
+      reject(new Error('Database shutting down'));
+    });
+    this.operationQueue.length = 0;
+    
+    // Wait for current operations to complete
+    try {
+      await this.operationLock;
+    } catch {
+      // Ignore errors during shutdown
+    }
   }
 
   /**
@@ -272,13 +338,15 @@ export class InMemoryStore {
     memories: number;
     queuedOperations: number;
     lastUpdated: string;
+    estimatedSizeMB: number;
   } {
     return {
       projects: this.database.projects.length,
       tasks: this.database.tasks.length,
       memories: this.database.memories.length,
       queuedOperations: this.operationQueue.length,
-      lastUpdated: this.database.meta.last_updated
+      lastUpdated: this.database.meta.last_updated,
+      estimatedSizeMB: this.estimateDatabaseSize(this.database)
     };
   }
 }

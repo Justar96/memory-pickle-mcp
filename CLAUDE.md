@@ -15,6 +15,8 @@ npm run prepare        # Pre-publish build (runs automatically)
 ```bash
 npm test               # Run all tests with Jest
 npm run test:coverage  # Run tests with coverage report
+npm test -- --testNamePattern="pattern"  # Run specific test by name pattern
+npm test -- test/taskService.test.ts     # Run specific test file
 ```
 
 ### Debugging and Inspection
@@ -66,21 +68,27 @@ src/
 
 ## Tool Architecture
 
-The system provides **8 essential MCP tools** with research-backed prompt engineering:
+The system provides **12 essential MCP tools** organized in clean categories:
 
-**Core Workflow Tools:**
-- `get_project_status` - Always use first in sessions
-- `create_project` - Creates new project contexts
-- `create_task` - Auto-detects priority from user language
-- `update_task` - Handles progress, completion, blockers
+**Read Tools:**
+- `recall_state` - Get current project context with tasks, memories, and stats in one call
+- `list_tasks` - List and filter tasks with pagination
+- `list_projects` - List projects with completion stats  
+- `get_task` - Get detailed info for a single task including subtasks and notes
 
-**Memory System:**
-- `remember_this` - Stores context and decisions
-- `recall_context` - Searches stored memories
+**Write Tools:**
+- `create_project` - Create new project and set as current
+- `update_project` - Update project name, description, or status
+- `set_current_project` - Switch active project context
+- `create_task` - Create task in current or specified project
+- `update_task` - Update task progress, completion, notes, or blockers
+
+**Memory Tools:**
+- `remember_this` - Store important information linked to current project/task
 
 **Session Management:**
-- `generate_handoff_summary` - Creates session continuity
-- `set_current_project` - Switches active context
+- `export_session` - Export session data as markdown or JSON for permanent storage
+- `generate_handoff_summary` - Generate session summary for handoff between sessions
 
 ### Tool Design Principles
 - **Action-oriented descriptions** with clear usage triggers
@@ -112,7 +120,7 @@ The core tracks comprehensive session activity:
 - Comprehensive error handling with specific error types
 
 ### Testing Strategy
-- **133 tests** covering all services and edge cases
+- **220+ tests** covering all services and edge cases
 - Test utilities in `test/utils/testHelpers.ts`
 - Integration tests for MCP protocol compliance
 - Coverage reporting available

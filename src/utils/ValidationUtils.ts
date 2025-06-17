@@ -1,4 +1,5 @@
-import type { Project, Task, Memory, ProjectDatabase } from '../types/index.js';
+import type { Project, Task, Memory, ProjectDatabase, LineRange } from '../types/index.js';
+import { ValidationError, InvalidPriorityError, InvalidProgressError } from './errors.js';
 
 /**
  * Comprehensive validation utilities for data integrity and schema enforcement
@@ -191,10 +192,15 @@ export class ValidationUtils {
   }
 
   // Input sanitization
+  /**
+   * Sanitizes a string by trimming whitespace but preserving special characters
+   */
   static sanitizeString(input: any): string {
-    if (input === null || input === undefined) return '';
-    const str = String(input);
-    return str.trim().replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+    if (typeof input !== 'string') {
+      return '';
+    }
+    // Only trim whitespace, preserve all other characters including newlines, tabs, emojis
+    return input.trim();
   }
 
   static sanitizeId(input: any): string {
@@ -302,22 +308,6 @@ export class ValidationUtils {
     return { isValid: true, errors: [] };
   }
 
-  // Additional validation methods for comprehensive testing
-  static isValidEmail(email: any): boolean {
-    if (!email || typeof email !== 'string') return false;
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  }
-
-  static isValidUrl(url: any): boolean {
-    if (!url || typeof url !== 'string') return false;
-    try {
-      const parsed = new URL(url);
-      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-    } catch {
-      return false;
-    }
-  }
 
   static isValidPriority(priority: any): boolean {
     if (!priority || typeof priority !== 'string') return false;
@@ -344,7 +334,7 @@ export class ValidationUtils {
   static validateProgress(progress: any): void {
     if (progress !== undefined && progress !== null) {
       if (typeof progress !== 'number' || progress < 0 || progress > 100) {
-        throw new Error('Progress must be between 0 and 100');
+        throw new InvalidProgressError(progress);
       }
     }
   }
@@ -367,6 +357,77 @@ export class ValidationUtils {
   static validateOptionalEnum(value: any, fieldName: string, validValues: string[]): void {
     if (value !== undefined && value !== null && !validValues.includes(value)) {
       throw new Error(`Field '${fieldName}' must be one of: ${validValues.join(', ')}, or undefined`);
+    }
+  }
+
+  // Missing methods that tests expect
+  static validatePriority(priority: any): void {
+    if (priority === undefined || priority === null) {
+      return; // Allow undefined/null priorities
+    }
+    
+    if (typeof priority !== 'string' || !['critical', 'high', 'medium', 'low'].includes(priority)) {
+      throw new InvalidPriorityError(priority);
+    }
+  }
+
+  static validateRequiredField(value: any, fieldName: string): void {
+    if (value === null || value === undefined) {
+      throw new ValidationError(fieldName, value, 'cannot be null or undefined');
+    }
+    
+    if (typeof value === 'string' && value.trim() === '') {
+      throw new ValidationError(fieldName, value, 'cannot be empty string');
+    }
+  }
+
+  static validateLineRange(lineRange: LineRange | undefined): void {
+    if (lineRange === undefined || lineRange === null) {
+      return; // Allow undefined line ranges
+    }
+    
+    if (typeof lineRange !== 'object') {
+      throw new ValidationError('line_range', lineRange, 'must be an object');
+    }
+    
+    if (typeof lineRange.start_line !== 'number' || typeof lineRange.end_line !== 'number') {
+      throw new ValidationError('line_range', lineRange, 'start_line and end_line must be numbers');
+    }
+    
+    if (lineRange.start_line < 1 || lineRange.end_line < 1) {
+      throw new ValidationError('line_range', lineRange, 'line numbers must be positive (1-based)');
+    }
+    
+    if (lineRange.start_line > lineRange.end_line) {
+      throw new ValidationError('line_range', lineRange, 'start_line must be less than or equal to end_line');
+    }
+  }
+
+  /**
+   * Validates email format using a simple regex pattern
+   */
+  static isValidEmail(email: any): boolean {
+    if (!email || typeof email !== 'string') {
+      return false;
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  /**
+   * Validates URL format, allowing only http and https protocols
+   */
+  static isValidUrl(url: any): boolean {
+    if (!url || typeof url !== 'string') {
+      return false;
+    }
+    
+    try {
+      const urlObj = new URL(url);
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch {
+      return false;
     }
   }
 }

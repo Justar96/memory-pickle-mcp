@@ -13,9 +13,9 @@ import {
   InvalidProgressError,
   CircularDependencyError,
   DryRunResult,
-  formatErrorResponse,
-  ValidationUtils
+  formatErrorResponse
 } from '../src/utils/errors.js';
+import { ValidationUtils } from '../src/utils/ValidationUtils.js';
 
 describe('Error Handling System', () => {
   describe('Custom Error Classes', () => {

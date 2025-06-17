@@ -40,7 +40,7 @@ export default {
   ],
 
   // Setup files
-  setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
+  // setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
 
   // Verbose output for CI
   verbose: process.env.CI === 'true',

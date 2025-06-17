@@ -77,7 +77,8 @@ Project management and session memory for AI agents. Provides 8 essential MCP to
 - `recall_context` - Search stored memories
 
 **Session Management**
-- `generate_handoff_summary` - Create transition summary (responds to 'handoff' trigger)
+- `generate_handoff_summary` - Create transition summary (responds to 'handoff' trigger) & clean markdown for agents
+- `export_session` - Export session data as markdown/JSON for permanent storage
 
 ## Storage Details
 
@@ -170,7 +171,7 @@ Apache 2.0
 
 ## Version
 
-Current: 1.3.8
+Current: 1.4.0
 
 Recent changes:
 - Simplified to memory-only storage (no file persistence)
