@@ -1,4 +1,5 @@
-import type { Project, Task, Memory, ProjectDatabase } from '../types/index.js';
+import type { Project, Task, Memory, ProjectDatabase, LineRange } from '../types/index.js';
+import { ValidationError, InvalidPriorityError, InvalidProgressError } from './errors.js';
 
 /**
  * Comprehensive validation utilities for data integrity and schema enforcement
@@ -191,8 +192,20 @@ export class ValidationUtils {
   }
 
   // Input sanitization
-  static sanitizeString(input: string): string {
-    return input.trim().replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+  /**
+   * Sanitizes a string by trimming whitespace but preserving special characters
+   */
+  static sanitizeString(input: any): string {
+    if (typeof input !== 'string') {
+      return '';
+    }
+    // Only trim whitespace, preserve all other characters including newlines, tabs, emojis
+    return input.trim();
+  }
+
+  static sanitizeId(input: any): string {
+    if (input === null || input === undefined) return '';
+    return String(input).trim();
   }
 
   static sanitizeProject(project: Partial<Project>): Partial<Project> {
@@ -293,5 +306,128 @@ export class ValidationUtils {
     }
 
     return { isValid: true, errors: [] };
+  }
+
+
+  static isValidPriority(priority: any): boolean {
+    if (!priority || typeof priority !== 'string') return false;
+    return ['critical', 'high', 'medium', 'low'].includes(priority);
+  }
+
+  static isValidStatus(status: any): boolean {
+    if (!status || typeof status !== 'string') return false;
+    return ['planning', 'in_progress', 'blocked', 'completed', 'archived'].includes(status);
+  }
+
+  static isValidImportance(importance: any): boolean {
+    if (!importance || typeof importance !== 'string') return false;
+    return ['critical', 'high', 'medium', 'low'].includes(importance);
+  }
+
+  static validateStringLength(value: any, fieldName: string, min: number, max: number): void {
+    const str = value ? String(value) : '';
+    if (str.length < min || str.length > max) {
+      throw new Error(`Field '${fieldName}' must be between ${min} and ${max} characters`);
+    }
+  }
+
+  static validateProgress(progress: any): void {
+    if (progress !== undefined && progress !== null) {
+      if (typeof progress !== 'number' || progress < 0 || progress > 100) {
+        throw new InvalidProgressError(progress);
+      }
+    }
+  }
+
+  static validateArray(value: any, fieldName: string, min: number, max: number): void {
+    if (!Array.isArray(value)) {
+      throw new Error(`Field '${fieldName}' must be an array`);
+    }
+    if (value.length < min || value.length > max) {
+      throw new Error(`Field '${fieldName}' must have between ${min} and ${max} items`);
+    }
+  }
+
+  static validateEnum(value: any, fieldName: string, validValues: string[]): void {
+    if (!validValues.includes(value)) {
+      throw new Error(`Field '${fieldName}' must be one of: ${validValues.join(', ')}`);
+    }
+  }
+
+  static validateOptionalEnum(value: any, fieldName: string, validValues: string[]): void {
+    if (value !== undefined && value !== null && !validValues.includes(value)) {
+      throw new Error(`Field '${fieldName}' must be one of: ${validValues.join(', ')}, or undefined`);
+    }
+  }
+
+  // Missing methods that tests expect
+  static validatePriority(priority: any): void {
+    if (priority === undefined || priority === null) {
+      return; // Allow undefined/null priorities
+    }
+    
+    if (typeof priority !== 'string' || !['critical', 'high', 'medium', 'low'].includes(priority)) {
+      throw new InvalidPriorityError(priority);
+    }
+  }
+
+  static validateRequiredField(value: any, fieldName: string): void {
+    if (value === null || value === undefined) {
+      throw new ValidationError(fieldName, value, 'cannot be null or undefined');
+    }
+    
+    if (typeof value === 'string' && value.trim() === '') {
+      throw new ValidationError(fieldName, value, 'cannot be empty string');
+    }
+  }
+
+  static validateLineRange(lineRange: LineRange | undefined): void {
+    if (lineRange === undefined || lineRange === null) {
+      return; // Allow undefined line ranges
+    }
+    
+    if (typeof lineRange !== 'object') {
+      throw new ValidationError('line_range', lineRange, 'must be an object');
+    }
+    
+    if (typeof lineRange.start_line !== 'number' || typeof lineRange.end_line !== 'number') {
+      throw new ValidationError('line_range', lineRange, 'start_line and end_line must be numbers');
+    }
+    
+    if (lineRange.start_line < 1 || lineRange.end_line < 1) {
+      throw new ValidationError('line_range', lineRange, 'line numbers must be positive (1-based)');
+    }
+    
+    if (lineRange.start_line > lineRange.end_line) {
+      throw new ValidationError('line_range', lineRange, 'start_line must be less than or equal to end_line');
+    }
+  }
+
+  /**
+   * Validates email format using a simple regex pattern
+   */
+  static isValidEmail(email: any): boolean {
+    if (!email || typeof email !== 'string') {
+      return false;
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  /**
+   * Validates URL format, allowing only http and https protocols
+   */
+  static isValidUrl(url: any): boolean {
+    if (!url || typeof url !== 'string') {
+      return false;
+    }
+    
+    try {
+      const urlObj = new URL(url);
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch {
+      return false;
+    }
   }
 }

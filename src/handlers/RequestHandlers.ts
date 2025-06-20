@@ -8,6 +8,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { ALL_TOOLS } from '../tools/index.js';
 import type { MemoryPickleCore } from '../core/MemoryPickleCore.js';
+import { formatErrorResponse, MemoryPickleError } from '../utils/errors.js';
 
 /**
  * Registers all MCP request handlers for tools, resources, and templates on the server.
@@ -26,13 +27,29 @@ export function setupRequestHandlers(server: Server, core: MemoryPickleCore): vo
 }
 
 /**
- * Registers MCP request handlers for listing available tools and invoking specific core tool methods.
+ * Dynamically extracts tool names from the tools definition to ensure synchronization
+ */
+function getToolNames(): string[] {
+  return ALL_TOOLS.map(tool => tool.name);
+}
+
+/**
+ * Validates that a core method exists for a given tool name
+ */
+function validateCoreMethod(core: MemoryPickleCore, toolName: string): boolean {
+  return typeof (core as any)[toolName] === 'function';
+}
+
+/**
+ * Registers MCP request handlers for listing available tools and invoking core tool methods.
  *
- * Sets up endpoints to return the list of supported tools and to execute a restricted set of eight whitelisted core methods by name with arguments. Only these allowed tool methods can be invoked; attempts to call other tools or unimplemented methods result in errors. Execution errors are caught and returned as error responses.
- *
- * @throws {Error} If the requested tool name is not in the allowed list or is not implemented on the core.
+ * Dynamically synchronizes with the tools definition and validates core method availability.
+ * All tool execution errors are caught and returned as proper error responses.
  */
 function setupToolHandlers(server: Server, core: MemoryPickleCore): void {
+  // Get tool names dynamically from tools definition
+  const toolNames = getToolNames();
+
   // List available tools
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
@@ -40,36 +57,37 @@ function setupToolHandlers(server: Server, core: MemoryPickleCore): void {
     };
   });
 
-  // Handle tool calls
+  // Handle tool calls with improved error handling and validation
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
-    // Simplified whitelist of core methods (8 tools)
-    const allowedMethods = [
-      'get_project_status', 'create_project', 'set_current_project',
-      'create_task', 'update_task',
-      'remember_this', 'recall_context',
-      'generate_handoff_summary'
-    ];
+    // Validate tool exists in our tools definition
+    if (!toolNames.includes(name)) {
+      throw new MemoryPickleError(
+        `Unknown tool: ${name}. Available tools: ${toolNames.join(', ')}`,
+        'UNKNOWN_TOOL'
+      );
+    }
 
-    if (!allowedMethods.includes(name)) {
-      throw new Error(`Unknown or unauthorized tool: ${name}`);
+    // Validate core method exists
+    if (!validateCoreMethod(core, name)) {
+      throw new MemoryPickleError(
+        `Tool not implemented in core: ${name}`,
+        'TOOL_NOT_IMPLEMENTED'
+      );
     }
 
     try {
-      if (typeof (core as any)[name] === 'function') {
-        return await (core as any)[name](args);
-      } else {
-        throw new Error(`Tool not implemented: ${name}`);
-      }
+      // Execute the tool method
+      const result = await (core as any)[name](args || {});
+      return result;
     } catch (error) {
-      return {
-        content: [{
-          type: "text",
-          text: `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`
-        }],
-        isError: true
-      };
+      // Enhanced error handling with context
+      const enhancedError = error instanceof Error 
+        ? new Error(`Tool '${name}' execution failed: ${error.message}`)
+        : new Error(`Tool '${name}' execution failed: Unknown error`);
+      
+      return formatErrorResponse(enhancedError);
     }
   });
 }
@@ -96,13 +114,19 @@ function setupResourceHandlers(server: Server, core: MemoryPickleCore): void {
         mimeType: "text/markdown",
         name: "Session Summary",
         description: "Current session summary in markdown format"
+      },
+      {
+        uri: `memory:///system-stats`,
+        mimeType: "application/json",
+        name: "System Statistics",
+        description: "Current system performance and health statistics"
       }
     ];
 
     return { resources };
   });
 
-  // Read resources - serve in-memory data
+  // Read resources - serve in-memory data with enhanced error handling
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     try {
       const url = new URL(request.params.uri);
@@ -133,14 +157,37 @@ function setupResourceHandlers(server: Server, core: MemoryPickleCore): void {
               }]
             };
 
+          case '/system-stats':
+            // Return system statistics as JSON
+            const stats = core.getSystemStats();
+            return {
+              contents: [{
+                uri: request.params.uri,
+                mimeType: "application/json",
+                text: JSON.stringify(stats, null, 2)
+              }]
+            };
+
           default:
-            throw new Error(`Unknown memory resource: ${resourcePath}`);
+            throw new MemoryPickleError(
+              `Unknown memory resource: ${resourcePath}. Available resources: /current-session, /session-summary, /system-stats`,
+              'UNKNOWN_RESOURCE'
+            );
         }
       }
 
-      throw new Error(`Unsupported protocol: ${url.protocol}. Only memory:// protocol is supported in in-memory mode.`);
+      throw new MemoryPickleError(
+        `Unsupported protocol: ${url.protocol}. Only memory:// protocol is supported in in-memory mode.`,
+        'UNSUPPORTED_PROTOCOL'
+      );
     } catch (error) {
-      throw error;
+      if (error instanceof MemoryPickleError) {
+        throw error;
+      }
+      throw new MemoryPickleError(
+        `Resource access failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'RESOURCE_ACCESS_ERROR'
+      );
     }
   });
 }
@@ -148,7 +195,7 @@ function setupResourceHandlers(server: Server, core: MemoryPickleCore): void {
 /**
  * Registers a request handler that lists available resource templates for in-memory resources.
  *
- * The handler advertises a single template for accessing in-memory resources such as "current-session" and "session-summary" via the `memory://` protocol.
+ * The handler advertises templates for accessing in-memory resources such as "current-session", "session-summary", and "system-stats" via the `memory://` protocol.
  */
 function setupTemplateHandlers(server: Server): void {
   // List resource templates
@@ -159,7 +206,7 @@ function setupTemplateHandlers(server: Server): void {
     templates.push({
       uriTemplate: "memory:///{resource}",
       name: "In-Memory Resource Access",
-      description: "Access in-memory resources (current-session, session-summary)",
+      description: "Access in-memory resources (current-session, session-summary, system-stats)",
       mimeType: "application/json"
     });
 

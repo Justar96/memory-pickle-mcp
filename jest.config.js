@@ -7,6 +7,10 @@ export default {
   maxWorkers: '50%',
   testTimeout: 30000,
 
+  // Force Jest to exit even with hanging timers/intervals
+  forceExit: true,
+  detectOpenHandles: true,
+
   // Modern ts-jest configuration (avoiding deprecated globals)
   extensionsToTreatAsEsm: ['.ts'],
   transform: {
@@ -15,7 +19,7 @@ export default {
     }],
   },
 
-  // Test file patterns
+  // Use the organized test structure - find all test files in test directory
   testMatch: ['**/test/**/*.test.ts'],
 
   // Module resolution
@@ -39,8 +43,8 @@ export default {
     '/coverage/',
   ],
 
-  // Setup files
-  setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
+  // Setup files for global configuration
+  setupFilesAfterEnv: ['<rootDir>/test/setup/global.ts'],
 
   // Verbose output for CI
   verbose: process.env.CI === 'true',
