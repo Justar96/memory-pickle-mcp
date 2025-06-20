@@ -133,6 +133,7 @@ export_session:
 - **Context switching:** Agents may lose context between tool calls (in some case)
 - **State synchronization:** Use `recall_state` to refresh context
 - **Error handling:** Tools provide detailed error information
+  *send me issues <3*
 
 ## Requirements
 
