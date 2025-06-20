@@ -1,0 +1,58 @@
+[
+  {
+    "name": "E-commerce Platform",
+    "description": "Building a modern e-commerce platform with React and Node.js",
+    "status": "in_progress",
+    "tasks": [
+      {
+        "title": "Build React Frontend",
+        "description": "Create responsive UI components and pages",
+        "priority": "high"
+      },
+      {
+        "title": "Develop Node.js API",
+        "description": "Build RESTful API with authentication",
+        "priority": "critical"
+      },
+      {
+        "title": "Write Integration Tests",
+        "description": "Comprehensive testing suite",
+        "priority": "medium"
+      }
+    ]
+  },
+  {
+    "name": "Mobile App",
+    "description": "iOS and Android mobile application",
+    "status": "planning",
+    "tasks": [
+      {
+        "title": "Design UI Mockups",
+        "description": "Create user interface designs",
+        "priority": "high"
+      },
+      {
+        "title": "Implement Authentication",
+        "description": "Add login and security features",
+        "priority": "critical"
+      }
+    ]
+  },
+  {
+    "name": "Data Analytics Dashboard",
+    "description": "Business intelligence and reporting dashboard",
+    "status": "planning",
+    "tasks": [
+      {
+        "title": "Setup Analytics Dashboard",
+        "description": "Configure data visualization components",
+        "priority": "medium"
+      },
+      {
+        "title": "Implement Real-time Updates",
+        "description": "Add live data streaming",
+        "priority": "high"
+      }
+    ]
+  }
+] 

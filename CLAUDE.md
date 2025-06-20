@@ -46,7 +46,7 @@ src/
 │   ├── ProjectService.ts       # Project management logic
 │   ├── TaskService.ts          # Task management logic
 │   └── MemoryService.ts        # Context/memory management
-├── tools/index.ts              # 8 MCP tools with enhanced prompts
+├── tools/index.ts              # 12 MCP tools with enhanced prompts
 └── types/schemas.ts            # Zod validation schemas
 ```
 
@@ -120,7 +120,7 @@ The core tracks comprehensive session activity:
 - Comprehensive error handling with specific error types
 
 ### Testing Strategy
-- **220+ tests** covering all services and edge cases
+- **16 comprehensive test files** covering all services and edge cases
 - Test utilities in `test/utils/testHelpers.ts`
 - Integration tests for MCP protocol compliance
 - Coverage reporting available
@@ -181,7 +181,7 @@ Output uses standardized prefixes:
 }
 ```
 
-The server automatically provides all 8 tools to MCP clients with comprehensive documentation and usage examples.
+The server automatically provides all 12 tools to MCP clients with comprehensive documentation and usage examples.
 
 ## MCP Agent Awareness Features
 
@@ -208,7 +208,7 @@ This codebase implements advanced MCP agent awareness patterns following industr
 ### 4. Testing and Validation
 - **Dry-run mode**: `dry_run: true` parameter validates inputs without changes
 - **Error simulation**: Test error conditions safely with structured error responses
-- **Integration testing**: 133 tests cover all tool interactions and edge cases
+- **Integration testing**: Comprehensive test suite covers all tool interactions and edge cases
 - **Schema validation**: Runtime validation with Zod ensures type safety
 
 ### Example Error Responses
@@ -221,7 +221,7 @@ This codebase implements advanced MCP agent awareness patterns following industr
 ### Agent Integration Patterns
 The tools follow these patterns for optimal agent adoption:
 
-1. **Session initialization**: Always start with `get_project_status`
+1. **Session initialization**: Always start with `recall_state`
 2. **Natural triggers**: Listen for action words ("need to" → `create_task`)
 3. **Progress tracking**: Detect completion phrases ("I finished" → `update_task`)
 4. **Memory storage**: Auto-trigger on importance keywords ("remember that")

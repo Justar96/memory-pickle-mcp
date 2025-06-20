@@ -8,11 +8,16 @@ export class ProjectService {
   /**
    * Creates a new project
    */
-  createProject(args: { name: string; description?: string }): Project {
-    const { name, description } = args;
+  createProject(args: { name: string; description?: string; status?: 'planning' | 'in_progress' | 'blocked' | 'completed' | 'archived' }): Project {
+    const { name, description, status = 'planning' } = args;
     
     if (!name) {
       throw new Error('Project name is required');
+    }
+
+    // Validate status if provided
+    if (status && !['planning', 'in_progress', 'blocked', 'completed', 'archived'].includes(status)) {
+      throw new Error(`Invalid project status: ${status}. Must be one of: planning, in_progress, blocked, completed, archived`);
     }
 
     return {
@@ -20,7 +25,7 @@ export class ProjectService {
       name,
       description,
       created_date: new Date().toISOString(),
-      status: 'planning',
+      status,
       completion_percentage: 0,
       tasks: [],
       milestones: []

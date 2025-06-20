@@ -189,13 +189,9 @@ export class MemoryPickleCore {
       const result = await this.inMemoryStore.runExclusive(async (db) => {
         const newProject = this.projectService.createProject({
           name: sanitizedName,
-          description: sanitizedDescription
+          description: sanitizedDescription,
+          status: status
         });
-
-        // Set status if provided
-        if (status && status !== 'planning') {
-          newProject.status = status;
-        }
 
         db.projects.push(newProject);
 
