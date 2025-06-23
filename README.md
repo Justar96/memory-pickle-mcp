@@ -18,7 +18,7 @@
   }
 }
 ```
-## AI Assistant Compatibility
+## Compatibility
 
 **Extensively Tested & Optimized For:**
 - **Cursor** , **Windsurf** , **Cline, Roo, Kilo Mode Code**
@@ -103,18 +103,14 @@ export_session:
   raw_markdown: true  # Clean output for processing
 ```
 
-### **⚠️ Agent Integration Notes**
+### **Integration Notes**
 - **Context switching:** Agents may lose context between tool calls (in some case)
 - **State synchronization:** Use `recall_state` to refresh context
 - **Error handling:** Tools provide detailed error information
   *send me issues <3*
 
 ## Requirements
-
 - **Node.js:** 16.0.0 or higher
-- **MCP Client:** Claude Desktop, Cursor, Windsurf, Cline, Roo, etc.
-- **Memory:** 100MB RAM minimum for typical usage
-- **Platform:** Windows, macOS, Linux (cross-platform)
 
 ## Links & Resources
 
