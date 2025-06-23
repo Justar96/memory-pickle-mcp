@@ -7,18 +7,6 @@
 
 ## Quick Start
 
-### Pre-release Version (Latest Development)
-```json
-{
-  "mcpServers": {
-    "memory-pickle-pre": {
-      "command": "npx",
-      "args": ["-y", "@cabbages-pre/memory-pickle-mcp-pre@latest"]
-    }
-  }
-}
-```
-
 ### Stable Version
 ```json
 {
@@ -30,20 +18,6 @@
   }
 }
 ```
-
-### Local Development
-```json
-{
-  "mcpServers": {
-    "memory-pickle-dev": {
-      "command": "node",
-      "args": ["build/index.js"],
-      "cwd": "/path/to/your/memory-pickle-mcp"
-    }
-  }
-}
-```
-
 ## AI Assistant Compatibility
 
 **Extensively Tested & Optimized For:**
@@ -113,7 +87,7 @@ recall_context:
   limit: 5
 ```
 
-## Session Workflow
+## Workflow
 
 ### **Session Handoff**
 ```yaml
@@ -148,6 +122,30 @@ export_session:
 - **GitHub Repository:** [Justar96/memory-pickle-mcp](https://github.com/Justar96/memory-pickle-mcp)
 - **NPM Package:** [@cabbages/memory-pickle-mcp](https://www.npmjs.com/package/@cabbages/memory-pickle-mcp)
 - **Pre-release:** [@cabbages-pre/memory-pickle-mcp-pre](https://www.npmjs.com/package/@cabbages-pre/memory-pickle-mcp-pre)
+
+### Local Development
+```json
+{
+  "mcpServers": {
+    "memory-pickle-dev": {
+      "command": "node",
+      "args": ["build/index.js"],
+      "cwd": "/path/to/your/memory-pickle-mcp"
+    }
+  }
+}
+```
+### Pre-release Version (Latest Development)
+```json
+{
+  "mcpServers": {
+    "memory-pickle-pre": {
+      "command": "npx",
+      "args": ["-y", "@cabbages-pre/memory-pickle-mcp-pre@latest"]
+    }
+  }
+}
+```
 
 ## Documentation
 
