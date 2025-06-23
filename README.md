@@ -13,7 +13,7 @@
   "mcpServers": {
     "memory-pickle": {
       "command": "npx",
-      "args": ["-y", "@cabbages/memory-pickle-mcp@latest"]
+      "args": ["-y", "@cabbages/memory-pickle-mcp"]
     }
   }
 }
